@@ -8,6 +8,23 @@
 #include "fir.h"
 #include "fft.h"
 
+///----Funkcije za kontrolu-----///
+void startBlink(char color);
+char getMyAddr(void);
+char listenToConnectedDevices(void);
+///----Kraj funkcija za kontrolu-----///
+
+///----Varijable za kontrolu----///
+#define BOOT			    0
+#define CHOOSE_OPTION		1
+#define WAIT_FOR_CALL		2
+#define CALL         		3
+#define ADDR_OK				5
+#define FETCHED_OK			6
+volatile uint8_t ControlState = (BOOT);
+char server_addr[5];
+///----Kraj kontrole
+
 #define DAC_BUFF_SIZE 128
 
 PDMFilter_InitStruct Filter;
@@ -66,6 +83,22 @@ int main(void)
 	
 	initSYSTIM();
 	initNRF24L01(node_type);
+	
+	///----Dio za kontrolu toka----///
+	switch(ControlState) {
+		case(BOOT):
+		{
+			startBlink('r');
+			printUSART2("\nInitialiazing radio interface: \n");
+			printUSART2("Enter your address: ");
+			while(getMyAddr() != ADDR_OK);
+			while(listenToConnectedDevices() != FETCHED_OK);
+		}
+			
+	}
+	
+	
+	///----Kraj kontrole toka-----///
 	
 	if(node_type == (NRF24L01_NODE_TYPE_TX))
 	{
@@ -185,4 +218,34 @@ void runSlaveNodeSYS(void)
 			}
 		}
 	}
+}
+
+
+void startBlink(char color) {
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								
+	GPIOD->MODER |= GPIO_MODER_MODER12_0;             							
+    GPIOD->OTYPER = 0x00000000;											
+    GPIOD->OSPEEDR |= 0xFF000000; 										
+	GPIOD->ODR &= ~(0x000F);
+	while(ControlState != ADDR_OK) {
+		delay_ms(50);
+		GPIOD->ODR ^= GPIO_ODR_ODR_12;
+	}	
+}
+
+char getMyAddr(void) {
+	uint8_t i = 0;
+	while(i < 6) {
+		server_addr[i] = getcharUSART2();
+		if(server_addr[i] == '\n')
+			break;
+		i++;
+	}
+	if(server_addr[5])
+		return ADDR_OK;
+}
+
+char listenToConnectedDevices(void) {
+	
+		
 }
