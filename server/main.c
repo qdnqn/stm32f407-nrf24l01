@@ -122,7 +122,7 @@ void runSlaveNodeSYS(void)
 			if(res == (NRF_DATA_READY))
 			{
 				rxDataNRF24L01(nrf_data);								// primljeni podatak je upisan u nrf_data
-				printUSART2("U slave mode: %c", nrf_data);
+				printUSART2("U slave mode: %c", nrf_data[0]);
 				uint8_t z;
 				uint8_t commands[2];
 				for(z=0;z<2;z++) {
@@ -130,12 +130,10 @@ void runSlaveNodeSYS(void)
 				}	
 				if(commands[0] == 97) {//connect
 					uint8_t nrf2[NRF24L01_PIPE_LENGTH];
-					for(i=0;i<32;i++) {
-						if(i < 5) 
+					for(i=0;i<5;i++) {
 							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr]);
-						else
-							nrf2[i] = 1;
 					}
+					setTxAddrNRF24L01(ADDR_BUS);
 					txDataNRF24L01((uint8_t*)ADDR_BUS, nrf2);
 					bus_flag = 0;
 					cnt_addr++;
