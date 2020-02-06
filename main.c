@@ -8,9 +8,17 @@
 #include "fir.h"
 #include "fft.h"
 
+///----Adrese RX uređaja----///
+char TX_P0[5] = "0x0A";
+char TX_P1[5] = "0x0B";
+char TX_P2[5] = "0x0C";
+char TX_P3[5] = "0x0D";
+///----Kraj RX adresa----///
+
 ///----Funkcije za kontrolu-----///
 void startBlink(char color);
-char getMyAddr(void);
+char getMyAddress(void);
+char enterAddress(void);
 char listenToConnectedDevices(void);
 ///----Kraj funkcija za kontrolu-----///
 
@@ -21,6 +29,7 @@ char listenToConnectedDevices(void);
 #define CALL         		3
 #define ADDR_OK				5
 #define FETCHED_OK			6
+#define GET_ADDR_OK 		7
 volatile uint8_t ControlState = (BOOT);
 char server_addr[5];
 ///----Kraj kontrole
@@ -90,23 +99,24 @@ int main(void)
 		{
 			startBlink('r');
 			printUSART2("\nInitialiazing radio interface: \n");
-			printUSART2("Enter your address: ");
-			while(getMyAddr() != ADDR_OK);
+			printUSART2("Enter address of RX(to send data): ");
+			while(enterAddress() != ADDR_OK);
+			while(getMyAddress() != GET_ADDR_OK);
 			while(listenToConnectedDevices() != FETCHED_OK);
-		}
-			
+			printUSART2("proso listen ");
+		}	
 	}
 	
 	
 	///----Kraj kontrole toka-----///
 	
-	if(node_type == (NRF24L01_NODE_TYPE_TX))
+	if(node_type == (NRF24L01_NODE_TYPE_TX))							// ako je antena TX
 	{
 		runMasterNodeSYS(&Filter);
 	}
 	else
 	{
-		runSlaveNodeSYS();
+		runSlaveNodeSYS();												// antena RX
 	}	
 	
 	return 0;
@@ -222,27 +232,73 @@ void runSlaveNodeSYS(void)
 
 
 void startBlink(char color) {
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								
-	GPIOD->MODER |= GPIO_MODER_MODER12_0;             							
-    GPIOD->OTYPER = 0x00000000;											
-    GPIOD->OSPEEDR |= 0xFF000000; 										
-	GPIOD->ODR &= ~(0x000F);
-	while(ControlState != ADDR_OK) {
-		delay_ms(50);
-		GPIOD->ODR ^= GPIO_ODR_ODR_12;
-	}	
+	if(color == 'r') {  								
+		RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//
+		GPIOD->MODER |= 0xAA000000;             							//
+		GPIOD->OTYPER |= 0x00000000; 										//
+		GPIOD->AFR[1] |= 0x22220000;
+		
+		RCC->APB1ENR |= RCC_APB1ENR_TIM4EN; 							
+		TIM4->PSC = 2000 - 1;											//T = 0.2s, f = 5Hz												 											
+		TIM4->ARR = 8400;
+		
+		TIM4->CCR2 = 0x0000;											
+					
+		TIM4->CCMR1 |= (TIM_CCMR1_OC2PE)|(TIM_CCMR1_OC2M_1)|(TIM_CCMR1_OC2M_0);					
+																						
+		TIM4->CCER &= ~((TIM_CCER_CC1P)|(TIM_CCER_CC2P));
+		TIM4->CR1 |= (TIM_CR1_ARPE)|(TIM_CR1_URS);
+		TIM4->EGR |= TIM_EGR_UG;											
+		TIM4->CCER |= (TIM_CCER_CC1E)|(TIM_CCER_CC2E);										
+		TIM4->CR1 |= TIM_CR1_CEN;											
+	}
 }
 
-char getMyAddr(void) {
+char enterAddress(void) {
 	uint8_t i = 0;
-	while(i < 6) {
+	uint8_t rbr = 0;
+	char server_addr[5];												//Adrese su formata 0x0A
+	while(i < 5) {
 		server_addr[i] = getcharUSART2();
-		if(server_addr[i] == '\n')
+		if(server_addr[i] == 13) {
 			break;
+		}
+		printUSART2("%c", server_addr[i]);
 		i++;
 	}
-	if(server_addr[5])
+	
+	if(server_addr[0] == 48 && server_addr[1] == 120 && server_addr[4] == 13) {// x13 je ENTER, treba staviti završni karakter za adresu, napraviti konvenciju
+		uint8_t k = 0;
+		printUSART2("\n\t- Adresa prihvacena!\n");
+		///Napisati sve adrese od svih TX antena, i provjeriti koja od tih adresa odgovara unesenoj!///
+		if(server_addr[3] == TX_P0[3]) {								// konvencija, samo se LSB razlikuje u svakoj adresi
+			rbr = 0;							
+		}
+		else if(server_addr[3] == TX_P1[3]) {
+			rbr = 1;
+		}
+		else if(server_addr[3] == TX_P2[3]) {
+			rbr = 2;
+		}
+		else if(server_addr[3] == TX_P3[3]) {
+			rbr = 3;
+		}
+		printUSART2("\nOdabrana je adresa TX_P%d: ", rbr);
+		while(k<5) {
+			printUSART2("%c",server_addr[k]);
+			k++;
+		}
+		printUSART2("\n");
 		return ADDR_OK;
+	}
+	else
+		printUSART2("\n\t- Neispravna adresa!\nEnter your address: ");
+	
+	
+}
+
+char getMyAddress(void) {
+	
 }
 
 char listenToConnectedDevices(void) {
