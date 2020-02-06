@@ -107,7 +107,7 @@ int main(void)
 		case(BOOT):
 		{
 			startBlink('r');
-			nrf2[0] = 'a';
+			nrf2[i] = 'a';
 			txDataNRF24L01((uint8_t *)ADDR_SERV, nrf2);
 			
 			while(1)
