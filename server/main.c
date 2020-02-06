@@ -12,13 +12,13 @@
 ///----Kraj simbola----///
 
 ///----Adrese TX uređaja----///
-char * ADDR_TX[5] = {"0x0A", "0x0B", "0x0C", "0x0D", "0x0E"};
+char * CALLS[5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};		
 
-char ADDR_TX_P0[5] = "0x0A";													
-char ADDR_TX_P1[5] = "0x0B";
-char ADDR_TX_P2[5] = "0x0C";
-char ADDR_TX_P3[5] = "0x0D";
-char ADDR_TX_P4[5] = "0x0E";
+char ADDR_TX_P0[5] = "alpha";													
+char ADDR_TX_P1[5] = "charl";
+char ADDR_TX_P2[5] = "bravo";
+char ADDR_TX_P3[5] = "delta";
+char ADDR_TX_P4[5] = "echoo";
 ///----Kraj TX adresa----///
 
 ///----Funkcije za kontrolu-----///
