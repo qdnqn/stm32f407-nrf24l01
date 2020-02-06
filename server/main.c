@@ -3,6 +3,13 @@
 #include "delay.h"
 #include "nrf24l01.h"
 
+char ADDR_SERV[5] = "CHSRV"; 											// Adresa servera
+char ADDR_BUS[5] = "CHRBUS";											// Adresa busa
+
+void connect();															//
+void listen(void);															// umjesto RunSlaveNode
+
+
 ///----Simboli-----///
 #define TX_P0			0
 #define TX_P1			1
@@ -12,8 +19,14 @@
 ///----Kraj simbola----///
 
 ///----Adrese TX uređaja----///
-char * CALLS[5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};		
+char * CALLS[5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};	
+char * USED_ADDR[5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};		
+uint8_t cnt_addr = 0;
+//kad se inicijalizira poziv u CALLS mijenjati adresu i ko prima i ko šalje//
 
+//potrebne funkcije
+//connect() za klijenta, da dobije se adresa pločice koja se povezuje na server
+//
 char ADDR_TX_P0[5] = "alpha";													
 char ADDR_TX_P1[5] = "charl";
 char ADDR_TX_P2[5] = "bravo";
@@ -23,9 +36,7 @@ char ADDR_TX_P4[5] = "echoo";
 
 ///----Funkcije za kontrolu-----///
 void startBlink(char color);
-char getMyAddress(void);
-char enterAddress(void);
-char listenToConnectedDevices(void);
+
 ///----Kraj funkcija za kontrolu-----///
 
 ///----Varijable za kontrolu----///
@@ -100,38 +111,37 @@ void runSlaveNodeSYS(void)
             	        
 	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
 	{
-		setTxAddrNRF24L01(c_nrf_master_addr);
+		setTxAddrNRF24L01(ADDR_BUS);
 		res = dataReadyNRF24L01();
 		
-		//if(res == (NRF_DATA_READY))
-		{
-			rxDataNRF24L01(nrf_data);									// primljeni podatak je upisan u nrf_data
-			printUSART2("U slave mode: %c", nrf_data);
+		if(bus_flag == 0) {
+			bus_flag = 1;
 			
-			if(nrf_data == 97) {
-				GPIOD->ODR |= GPIO_ODR_ODR_12;
-				runMasterNodeSYS(ADDR_TX[0]);
+			if(res == (NRF_DATA_READY))
+			{
+				rxDataNRF24L01(nrf_data);								// primljeni podatak je upisan u nrf_data
+				printUSART2("U slave mode: %c", nrf_data);
+				uint16_t z;
+				uint8_t commands;
+				for(z=0;z<2;z++) {
+					commands[z] = (nrf_data[z])
+				}							//comands[0] - komanda, commands[1] - adresa;
+					if(commands[0] == 97) {//connect
+						GPIOD->ODR |= GPIO_ODR_ODR_12;
+						runMasterNodeSYS(ADDR_TX[0]);
+						if()
+					}
+					else if(commands[0] == 98) {//call
+						GPIOD->ODR |= GPIO_ODR_ODR_13;
+						runMasterNodeSYS(ADDR_TX[1]);
+					}
+					else if(commands[0] == 99) {//hangup
+						GPIOD->ODR |= GPIO_ODR_ODR_14;
+						runMasterNodeSYS(ADDR_TX[2]);
+					else 
+						return;
+				}
 			}
-			else if(nrf_data == (TX_P1)) {
-				GPIOD->ODR |= GPIO_ODR_ODR_13;
-				runMasterNodeSYS(ADDR_TX[1]);
-			}
-			else if(nrf_data == (TX_P2)) {
-				GPIOD->ODR |= GPIO_ODR_ODR_14;
-				runMasterNodeSYS(ADDR_TX[2]);
-			}
-			else if(nrf_data == (TX_P3)) {
-				GPIOD->ODR |= GPIO_ODR_ODR_15;
-				runMasterNodeSYS(ADDR_TX[3]);
-			}
-			else if(nrf_data == (TX_P4)) {
-				GPIOD->ODR |= GPIO_ODR_ODR_12;
-				runMasterNodeSYS(ADDR_TX[4]);
-			}
-			else 
-				//printUSART2("\nPrijemnik nije dostupan!\n");
-				//delay_ms(1000);
-				return;
 		}
 	}
 }
