@@ -3,8 +3,8 @@
 #include "delay.h"
 #include "nrf24l01.h"
 
-char ADDR_SERV[5] = "CHSRV"; 											// Adresa servera
-char ADDR_BUS[5] = "CHBUS";												// Adresa busa
+char ADDR_SRV[6] = "CHSRV"; 											// Adresa servera
+char ADDR_BUS[6] = "CHBUS";												// Adresa busa
 
 void connect();															//
 void listen(void);														// umjesto RunSlaveNode
@@ -102,7 +102,7 @@ void runMasterNodeSYS(uint8_t * nrf_data)
 void runSlaveNodeSYS(void)
 {
 	uint8_t k, i, res;
-	uint8_t nrf_data[NRF24L01_PIPE_LENGTH];
+	uint8_t nrf_data[32];
 	uint8_t bus_flag = 0;	
 		
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//  
@@ -111,29 +111,40 @@ void runSlaveNodeSYS(void)
     GPIOD->OSPEEDR |= 0xFF000000; 										// 
     GPIOD->ODR &= ~0xF000;
             	        
+    setRxAddrNRF24L01((uint8_t *)ADDR_SRV,NRF24L01_RX_ADDR_P1);
+            	        
 	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
 	{
-		setTxAddrNRF24L01(ADDR_SERV);
+		setTxAddrNRF24L01(ADDR_BUS);
 		res = dataReadyNRF24L01();
-		
-		if(bus_flag == 0) {
-			//bus_flag = 1;
+				
+		/*if(bus_flag == 0) {
+			bus_flag = 1;*/
 			
 			if(res == (NRF_DATA_READY))
 			{
+				printUSART2("XXX\n");
 				rxDataNRF24L01(nrf_data);								// primljeni podatak je upisan u nrf_data
-				printUSART2("U slave mode: %c", nrf_data[0]);
+				//printUSART2("U slave mode: %c", nrf_data[0]);
+				
 				uint8_t z;
 				uint8_t commands[2];
-				for(z=0;z<2;z++) {
-					commands[z] = (uint8_t)(USED_ADDR[cnt_addr]);
-				}	
+				
+				commands[0] = nrf_data[0];
+				printUSART2("%d \n", commands[0]);
+				
 				if(commands[0] == 97) {//connect
+					printUSART2("COMMAND A EXECUTION \n");
 					uint8_t nrf2[NRF24L01_PIPE_LENGTH];
-					for(i=0;i<5;i++) {
-							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr]);
+					for(i=0;i<32;i++) {
+						if(i < 5) 
+							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr][i]);
+						else
+							nrf2[i] = 1;
 					}
-					setTxAddrNRF24L01(ADDR_BUS);
+					
+					delay_ms(2000);
+					
 					txDataNRF24L01((uint8_t*)ADDR_BUS, nrf2);
 					bus_flag = 0;
 					cnt_addr++;
@@ -150,7 +161,7 @@ void runSlaveNodeSYS(void)
 					} 	
 				}
 			}
-		}
+		//}
 	}
 
 void startBlink(char color) {

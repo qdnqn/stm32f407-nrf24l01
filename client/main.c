@@ -10,8 +10,8 @@
 
 
 
-char ADDR_SERV[5] = "CHSRV"; 											// Adresa servera
-char ADDR_BUS[5] = "CHBUS";												// Adresa busa
+char ADDR_SERV[6] = "CHSRV"; 											// Adresa servera
+char ADDR_BUS[6] = "CHBUS";												// Adresa busa
 
 void connect();															//
 void listen(void);														// umjesto RunSlaveNode
@@ -93,6 +93,8 @@ int main(void)
 	{// init as Tx node
 		node_type = (NRF24L01_NODE_TYPE_TX);
 	}
+	
+	node_type = (NRF24L01_NODE_TYPE_TX);
 	 
 	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	printUSART2("w nRF24L01 Tx-Rx demo - TYPE[%d] ",node_type);
@@ -107,16 +109,25 @@ int main(void)
 		case(BOOT):
 		{
 			startBlink('r');
-			nrf2[i] = 'a';
+			nrf2[0] = 'a';
+			
+			setRxAddrNRF24L01((uint8_t *)ADDR_BUS,NRF24L01_RX_ADDR_P1);
 			txDataNRF24L01((uint8_t *)ADDR_SERV, nrf2);
+						
+			setRxModeNRF24L01();
+			flushRxNRF24L01();
+			
+			printUSART2("SENT WAITING FOR RESPONSE\n");
 			
 			while(1)
 			{
-			setTxAddrNRF24L01(ADDR_BUS);
-			res = dataReadyNRF24L01();
-			
+				setTxAddrNRF24L01(ADDR_SERV);
+				res = dataReadyNRF24L01();
+								
 				if(res == (NRF_DATA_READY))
 				{
+					printUSART2("RESS2222 \n");
+					
 				    rxDataNRF24L01(nrf_data);
 					for(i=0;i<5;i++) {	
 						MyAddr[i] = nrf_data[i];
