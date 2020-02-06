@@ -4,10 +4,10 @@
 #include "nrf24l01.h"
 
 char ADDR_SERV[5] = "CHSRV"; 											// Adresa servera
-char ADDR_BUS[5] = "CHRBUS";											// Adresa busa
+char ADDR_BUS[5] = "CHBUS";												// Adresa busa
 
 void connect();															//
-void listen(void);															// umjesto RunSlaveNode
+void listen(void);														// umjesto RunSlaveNode
 
 
 ///----Simboli-----///
@@ -19,8 +19,9 @@ void listen(void);															// umjesto RunSlaveNode
 ///----Kraj simbola----///
 
 ///----Adrese TX uređaja----///
-char * CALLS[5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};	
-char * USED_ADDR[5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};		
+char CALLS[5][5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};	
+char USED_ADDR[5][5] = {"alpha", "charl", "bravo", "delta", "echoo"};		
+
 uint8_t cnt_addr = 0;
 //kad se inicijalizira poziv u CALLS mijenjati adresu i ko prima i ko šalje//
 
@@ -102,6 +103,7 @@ void runSlaveNodeSYS(void)
 {
 	uint8_t k, i, res;
 	uint8_t nrf_data = 10;
+	uint8_t bus_flag = 0;	
 		
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//  
     GPIOD->MODER |= 0x55000000;             							// 
@@ -121,30 +123,29 @@ void runSlaveNodeSYS(void)
 			{
 				rxDataNRF24L01(nrf_data);								// primljeni podatak je upisan u nrf_data
 				printUSART2("U slave mode: %c", nrf_data);
-				uint16_t z;
-				uint8_t commands;
+				uint8_t z;
+				uint8_t commands[2];
 				for(z=0;z<2;z++) {
-					commands[z] = (nrf_data[z])
-				}							//comands[0] - komanda, commands[1] - adresa;
+					commands[z] = (uint8_t)(USED_ADDR[cnt_addr]);
+				}	
 					if(commands[0] == 97) {//connect
-						GPIOD->ODR |= GPIO_ODR_ODR_12;
-						runMasterNodeSYS(ADDR_TX[0]);
-						if()
+						int8_t nrf2[NRF24L01_PIPE_LENGTH];
+						for(i=0;i<5;i++) {
+							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr]);
+						}
 					}
 					else if(commands[0] == 98) {//call
-						GPIOD->ODR |= GPIO_ODR_ODR_13;
-						runMasterNodeSYS(ADDR_TX[1]);
+						
 					}
 					else if(commands[0] == 99) {//hangup
-						GPIOD->ODR |= GPIO_ODR_ODR_14;
-						runMasterNodeSYS(ADDR_TX[2]);
+					
+					}
 					else 
 						return;
 				}
 			}
 		}
 	}
-}
 
 void startBlink(char color) {
 	if(color == 'r') {  								
