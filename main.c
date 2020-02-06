@@ -19,6 +19,7 @@ char TX_P3[5] = "0x0D";
 void startBlink(char color);
 char getMyAddress(void);
 char enterAddress(void);
+char numOfRX(void);
 char listenToConnectedDevices(void);
 ///----Kraj funkcija za kontrolu-----///
 
@@ -40,6 +41,7 @@ PDMFilter_InitStruct Filter;
 
 void runMasterNodeSYS(PDMFilter_InitStruct *);
 void runSlaveNodeSYS(void);
+void runMasterNodeSYS1(uint8_t nrf_data);
 
 PDMFilter_InitStruct Filter;
 uint32_t utmp32 = 0, k_mic = 0, n_mic = 0;
@@ -99,29 +101,44 @@ int main(void)
 		{
 			startBlink('r');
 			printUSART2("\nInitialiazing radio interface: \n");
-			printUSART2("Enter address of RX(to send data): ");
-			while(enterAddress() != ADDR_OK);
-			while(getMyAddress() != GET_ADDR_OK);
-			while(listenToConnectedDevices() != FETCHED_OK);
-			printUSART2("proso listen ");
+			printUSART2("Enter number of RX(to send data): ");
+			while(numOfRX() != ADDR_OK);
+			printUSART2("\nAddresa ok");
+			//while(getMyAddress() != GET_ADDR_OK);
+			//while(listenToConnectedDevices() != FETCHED_OK);
+			//printUSART2("proso listen ");
 		}	
 	}
 	
 	
 	///----Kraj kontrole toka-----///
 	
-	if(node_type == (NRF24L01_NODE_TYPE_TX))							// ako je antena TX
-	{
-		runMasterNodeSYS(&Filter);
-	}
-	else
-	{
-		runSlaveNodeSYS();												// antena RX
-	}	
+	//if(node_type == (NRF24L01_NODE_TYPE_TX))							// ako je antena TX
+	//{
+		//runMasterNodeSYS(&Filter);
+	//}
+	//else
+	//{
+		//runSlaveNodeSYS();												// antena RX
+	//}	
 	
 	return 0;
 }
 
+void runMasterNodeSYS1(uint8_t nrf_data)
+{
+	//potrebno resetovati antenu, i ponovo je init ali u TX mode//
+	//implementirati funkciju za deinit antene//
+	uint8_t * addr = (uint8_t *) nrf_data;
+	uint8_t k, i;
+	while(1)
+	{
+		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, addr);
+		//printUSART2("\nU masterNode: %c", nrf_data);
+		//for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
+			//nrf_data[k] = 0x00;
+	}
+}
 
 void runMasterNodeSYS(PDMFilter_InitStruct *filter)
 {
@@ -254,48 +271,56 @@ void startBlink(char color) {
 	}
 }
 
-char enterAddress(void) {
-	uint8_t i = 0;
-	uint8_t rbr = 0;
-	char server_addr[5];												//Adrese su formata 0x0A
-	while(i < 5) {
-		server_addr[i] = getcharUSART2();
-		if(server_addr[i] == 13) {
-			break;
-		}
-		printUSART2("%c", server_addr[i]);
-		i++;
-	}
-	
-	if(server_addr[0] == 48 && server_addr[1] == 120 && server_addr[4] == 13) {// x13 je ENTER, treba staviti završni karakter za adresu, napraviti konvenciju
-		uint8_t k = 0;
-		printUSART2("\n\t- Adresa prihvacena!\n");
-		///Napisati sve adrese od svih TX antena, i provjeriti koja od tih adresa odgovara unesenoj!///
-		if(server_addr[3] == TX_P0[3]) {								// konvencija, samo se LSB razlikuje u svakoj adresi
-			rbr = 0;							
-		}
-		else if(server_addr[3] == TX_P1[3]) {
-			rbr = 1;
-		}
-		else if(server_addr[3] == TX_P2[3]) {
-			rbr = 2;
-		}
-		else if(server_addr[3] == TX_P3[3]) {
-			rbr = 3;
-		}
-		printUSART2("\nOdabrana je adresa TX_P%d: ", rbr);
-		while(k<5) {
-			printUSART2("%c",server_addr[k]);
-			k++;
-		}
-		printUSART2("\n");
-		return ADDR_OK;
-	}
-	else
-		printUSART2("\n\t- Neispravna adresa!\nEnter your address: ");
-	
-	
+char numOfRX(void) {
+	uint8_t nrf_data;
+	nrf_data = getcharUSART2();
+	putcharUSART2(nrf_data);
+	runMasterNodeSYS1(nrf_data);
+	return ADDR_OK;
 }
+
+//char enterAddress(void) {
+	//uint8_t i = 0;
+	//uint8_t rbr = 0;
+	//char server_addr[5];												//Adrese su formata 0x0A
+	//while(i < 5) {
+		//server_addr[i] = getcharUSART2();
+		//if(server_addr[i] == 13) {
+			//break;
+		//}
+		//printUSART2("%c", server_addr[i]);
+		//i++;
+	//}
+	
+	//if(server_addr[0] == 48 && server_addr[1] == 120 && server_addr[4] == 13) {// x13 je ENTER, treba staviti završni karakter za adresu, napraviti konvenciju
+		//uint8_t k = 0;
+		//printUSART2("\n\t- Adresa prihvacena!\n");
+		/////Napisati sve adrese od svih TX antena, i provjeriti koja od tih adresa odgovara unesenoj!///
+		//if(server_addr[3] == TX_P0[3]) {								// konvencija, samo se LSB razlikuje u svakoj adresi
+			//rbr = 0;							
+		//}
+		//else if(server_addr[3] == TX_P1[3]) {
+			//rbr = 1;
+		//}
+		//else if(server_addr[3] == TX_P2[3]) {
+			//rbr = 2;
+		//}
+		//else if(server_addr[3] == TX_P3[3]) {
+			//rbr = 3;
+		//}
+		//printUSART2("\nOdabrana je adresa TX_P%d: ", rbr);
+		//while(k<5) {
+			//printUSART2("%c",server_addr[k]);
+			//k++;
+		//}
+		//printUSART2("\n");
+		//return ADDR_OK;
+	//}
+	//else
+		//printUSART2("\n\t- Neispravna adresa!\nEnter your address: ");
+	
+	
+//}
 
 char getMyAddress(void) {
 	
