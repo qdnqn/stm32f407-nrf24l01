@@ -102,7 +102,7 @@ void runMasterNodeSYS(uint8_t * nrf_data)
 void runSlaveNodeSYS(void)
 {
 	uint8_t k, i, res;
-	uint8_t nrf_data = 10;
+	uint8_t nrf_data[NRF24L01_PIPE_LENGTH];
 	uint8_t bus_flag = 0;	
 		
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//  
@@ -113,11 +113,11 @@ void runSlaveNodeSYS(void)
             	        
 	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
 	{
-		setTxAddrNRF24L01(ADDR_BUS);
+		setTxAddrNRF24L01(ADDR_SERV);
 		res = dataReadyNRF24L01();
 		
 		if(bus_flag == 0) {
-			bus_flag = 1;
+			//bus_flag = 1;
 			
 			if(res == (NRF_DATA_READY))
 			{
@@ -128,11 +128,18 @@ void runSlaveNodeSYS(void)
 				for(z=0;z<2;z++) {
 					commands[z] = (uint8_t)(USED_ADDR[cnt_addr]);
 				}	
-					if(commands[0] == 97) {//connect
-						int8_t nrf2[NRF24L01_PIPE_LENGTH];
-						for(i=0;i<5;i++) {
+				if(commands[0] == 97) {//connect
+					uint8_t nrf2[NRF24L01_PIPE_LENGTH];
+					for(i=0;i<32;i++) {
+						if(i < 5) 
 							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr]);
-						}
+						else
+							nrf2[i] = 1;
+					}
+					txDataNRF24L01((uint8_t*)ADDR_BUS, nrf2);
+					bus_flag = 0;
+					cnt_addr++;
+					commands[0] = 100;
 					}
 					else if(commands[0] == 98) {//call
 						
@@ -140,8 +147,9 @@ void runSlaveNodeSYS(void)
 					else if(commands[0] == 99) {//hangup
 					
 					}
-					else 
-						return;
+					else {
+						
+					} 	
 				}
 			}
 		}
