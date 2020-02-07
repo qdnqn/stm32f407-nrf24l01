@@ -65,13 +65,42 @@ int main(void)
 	
 	uint8_t i = 0;
 	
+	while(1){
+		
 	if(state == BOOT){
 		ledTurnOn("red");
+		appendTx(RESERVE);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
 		
+		while(1)
+		{
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
+			if(AntenaState == (NRF_DATA_READY))
+			{
+				rxDataNRF24L01(RxData);
+				code = RxData[0];
+				printUSART2("CODE: %d \n", code);
+				state = ADDRESS;
+				break;
+			} 
+		}	
+	} else if(state == ADDRESS){
+		ledTurnOn("green");
+		
+		printUSART2("Trying to connect!\n");
+		
+		clearTx();
+		appendTx(code);
 		appendTx(CONNECT);
 		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
 		clearTx();
 		setRxMode();
+		
+		printUSART2("Trying to recieve addres from server!\n");
 		
 		while(1)
 		{
@@ -90,14 +119,25 @@ int main(void)
 				printUSART2("My address from server: %s", MyAddr);
 				delay_ms(2000);	
 				
-				txAppend(FREE_CHANNEL);
-				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
+				appendTx(code);
+				appendTx(FREE_CHANNEL);
+				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
 				clearTx();
-			}
+				
+				state = CHOOSE_OPTION;
+			} 
 		}	
 	} else if(state == CHOOSE_OPTION){
-	
+		/*uint8_t addr = getcharUSART2();
+		appendTx(CALL);
+		appendTx(addr);
+		
+		while(1){
+			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
+		}*/
 	} else {
+	
+	}
 	
 	}
 	

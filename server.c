@@ -35,9 +35,7 @@ void clearRx(){
 	for(i=0;i<NRF24L01_PIPE_LENGTH;i++){
 		RxData[i] = 0;
 	}
-}
-
-void resetRxCnt(){
+	
 	RxCnt = 0;
 }
 
@@ -56,8 +54,6 @@ void clearTx(){
 	for(i=0;i<NRF24L01_PIPE_LENGTH;i++){
 		TxData[i] = 0;
 	}
-}
-
-void resetTxCnt(){
+	
 	TxCnt = 0;
 }

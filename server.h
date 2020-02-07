@@ -5,12 +5,13 @@
 #include "nrf24l01.h"
 
 ///----Simboli za kontrolu----///
-#define CONNECT				97
-#define FREE_CHANNEL		98
-#define CONFIRM				99
-#define CALL				100
-#define HANG_UP				101
-#define NO_MORE_ADDRESS		102
+#define RESERVE				97
+#define CONNECT				98
+#define FREE_CHANNEL		99
+#define CONFIRM				100
+#define CALL				101
+#define HANG_UP				102
+#define NO_MORE_ADDRESS		103
 
 char ADDR_SRV[6]; 											// Adresa servera
 char ADDR_BUS[6];												// Adresa busa											
@@ -34,10 +35,8 @@ uint8_t commands[2];
 
 uint8_t parser_command(void);
 void appendRx(char tmp);
-void resetRxCnt();
 void clearRx();
 void appendTx(char tmp);
-void resetTxCnt();
 void clearTx();
 
 #endif 
