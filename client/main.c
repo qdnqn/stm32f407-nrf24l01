@@ -117,17 +117,30 @@ int main(void)
 				}
 				
 				printUSART2("My address from server: %s", MyAddr);
-				delay_ms(2000);	
+				/*delay_ms(2000);	
 				
 				appendTx(code);
 				appendTx(FREE_CHANNEL);
 				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-				clearTx();
+				clearTx();*/
 				
 				state = CHOOSE_OPTION;
+				break;
 			} 
 		}	
 	} else if(state == CHOOSE_OPTION){
+		while(1){
+			clearTx();
+			appendTx(code);
+			appendTx(HANG_UP);
+			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+			clearTx();
+			
+			printUSART2("KEEPING ALIVE!\n");
+			
+			delay_ms(1000);
+		}
+		
 		/*uint8_t addr = getcharUSART2();
 		appendTx(CALL);
 		appendTx(addr);
