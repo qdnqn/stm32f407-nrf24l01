@@ -1,75 +1,105 @@
 #include "stm32f4xx.h"
 #include "usart.h"
 #include "delay.h"
+#include "mp45dt02.h"
+#include "cs43l22.h"
+#include "pdm_filter.h"
 #include "nrf24l01.h"
-#include "server.h"
-#include "control_server.h"
+#include "control.h"
 #include "led.h"
+#include "client.h"
+
+#define DAC_BUFF_SIZE 128
+
+PDMFilter_InitStruct Filter;
+
+void runMasterNodeSYS(PDMFilter_InitStruct *);
+void runSlaveNodeSYS(void);
+void runMasterNodeSYS1(uint8_t nrf_data);
+
+PDMFilter_InitStruct Filter;
+uint32_t utmp32 = 0, k_mic = 0, n_mic = 0;
+uint16_t buff[64], cnt = 0;
+
+uint16_t outdata[16]; 
+uint16_t volume = 20, utmp16;
+uint16_t dac_data[DAC_BUFF_SIZE], dac_data2[DAC_BUFF_SIZE];
+uint16_t fs = 16000;
+uint32_t pid = 0;
 
 int main(void)
-{	
-	//uint8_t cnt_addr = 0;
-	//uint8_t k, i, res;
-	//uint8_t nrf_data[32];
-	//uint8_t bus_flag = 0;
-	//uint8_t z;
-	//uint8_t commands[2];	
+{
+	Filter.LP_HZ = 8000;
+	Filter.HP_HZ = 20;
+	Filter.Fs = fs;
+	Filter.Out_MicChannels = 1;
+	Filter.In_MicChannels = 1;
+	PDM_Filter_Init((PDMFilter_InitStruct *)&Filter);  
 	
-	initBlink();
+	initMIC(fs);
+	 
+	RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
+	
 	initUSART2(USART2_BAUDRATE_921600);
-	initNRF24L01(ADDR_SRV);
-    startBlink("red");
-            	        
-	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
-	{
-		setTxAddrNRF24L01(ADDR_BUS);									// adresa sa koje sluša
-		AntenaState = dataReadyNRF24L01();
-				
-		if(bus_flag == 0) {
-			bus_flag = 1;
-			
+	
+	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
+	printUSART2("w STM32F407 - CS43L22 Audio DAC MIC I2S demo");
+	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
+	
+	initCS43L22(3, 8000, dac_data, dac_data2, DAC_BUFF_SIZE);
+	printUSART2("-> SYS: init completed\n");
+	SPI2->I2SCFGR |= SPI_I2SCFGR_I2SE; 
+		
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+	GPIOC->MODER &= ~(GPIO_MODER_MODER6);  
+	GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR6_0);		
+
+	delay_ms(10);
+	 
+	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
+	printUSART2("w nRF24L01 Tx-Rx - Client\n");
+	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
+	
+	initSYSTIM();
+	initNRF24L01(ADDR_BUS);
+	
+	uint8_t i = 0;
+	
+	if(state == BOOT){
+		ledTurnOn("red");
+		
+		appendTx(CONNECT);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
+		
+		while(1)
+		{
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
 			if(AntenaState == (NRF_DATA_READY))
 			{
-				rxDataNRF24L01(RxData);								    // primljeni podatak je upisan u nrf_data
-				commands[0] = RxData[0];
-				printUSART2("%d \n", commands[0]);
-				if(commands[0] == (CONNECT)) {//connect
-					if(cnt_addr < 5) {
-					for(i=0;i<5;i++) {
-						appendTx((uint8_t)(USED_ADDR[cnt_addr][i]));
-					}	
-					delay_ms(1000);	  
-					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					clearTx();
-					cnt_addr++;
-					commands[0] = (CALL);
-					}
-					else {
-						appendTx('e');
-						appendTx('r');
-						appendTx('r');
-						appendTx('o');
-						appendTx('r');
-						txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-						clearTx();
-						commands[0] = (NO_MORE_ADDRESS);
-					}
-					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					bus_flag = 0;
-					cnt_addr++;
-					commands[0] = (CALL);
-					}
-					else if(commands[0] == (CALL)) {//call
-						
-					}
-					else if(commands[0] == (HANG_UP)) {//hangup
-					
-					}
-					else {
-						
-					} 	
+								
+				rxDataNRF24L01(RxData);
+				
+				for(i=0;i<5;i++) {	
+					MyAddr[i] = RxData[i];
 				}
+				
+				printUSART2("My address from server: %s", MyAddr);
+				delay_ms(2000);	
+				
+				txAppend(FREE_CHANNEL);
+				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
+				clearTx();
 			}
-		}
+		}	
+	} else if(state == CHOOSE_OPTION){
+	
+	} else {
+	
+	}
+	
 	return 0;
 }
