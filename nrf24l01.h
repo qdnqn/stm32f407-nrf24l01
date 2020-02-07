@@ -129,7 +129,9 @@
 #define NRF_CE_LOW							GPIOB->ODR &= ~(0x0800);
 
 
-void 		initNRF24L01(uint8_t node_type);
+void 		initNRF24L01(uint8_t* myStartingAddr);
+void 		setMyAddr(uint8_t*);
+void		setRxMode();
 void 		setRxAddrNRF24L01(uint8_t * addr, uint8_t reg);
 void 		setRegNRF24L01(uint8_t reg, uint8_t * reg_val, uint8_t n_val);
 void 		conRegNRF24L01(uint8_t reg, uint8_t reg_val);

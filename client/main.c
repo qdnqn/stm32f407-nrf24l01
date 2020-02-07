@@ -97,11 +97,11 @@ int main(void)
 	node_type = (NRF24L01_NODE_TYPE_TX);
 	 
 	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	printUSART2("w nRF24L01 Tx-Rx demo - TYPE[%d] ",node_type);
+	printUSART2("w nRF24L01 Tx-Rx demo - TYPE[%d] ", node_type);
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	
 	initSYSTIM();
-	initNRF24L01(node_type);
+	initNRF24L01(ADDR_BUS);
 	
 	uint8_t i = 0;
 	///----Dio za kontrolu toka----///
@@ -111,12 +111,9 @@ int main(void)
 			startBlink('r');
 			nrf2[0] = 'a';
 			
-			setRxAddrNRF24L01((uint8_t *)ADDR_BUS,NRF24L01_RX_ADDR_P1);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, nrf2);
-						
-			setRxModeNRF24L01();
-			flushRxNRF24L01();
-			
+			txDataNRF24L01((uint8_t *)ADDR_SERV, nrf2);				
+			setRxMode();	
+					
 			printUSART2("SENT WAITING FOR RESPONSE\n");
 			
 			while(1)
@@ -162,7 +159,7 @@ void runMasterNodeSYS1(uint8_t nrf_data)
 	uint8_t k, i;
 	while(1)
 	{
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, addr);
+		//txDataNRF24L01((uint8_t *)c_nrf_slave_addr, addr);
 		//printUSART2("\nU masterNode: %c", nrf_data);
 		//for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
 			//nrf_data[k] = 0x00;
@@ -197,7 +194,7 @@ void runMasterNodeSYS(PDMFilter_InitStruct *filter)
 			i++;
 		}
 
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
+		//txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
 				
 		for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
 			nrf_data[k] = 0x00;
@@ -230,7 +227,7 @@ void runSlaveNodeSYS(void)
             	        
 	while(1)
 	{
-		setTxAddrNRF24L01(c_nrf_master_addr);
+		//setTxAddrNRF24L01(c_nrf_master_addr);
 		res = dataReadyNRF24L01();
 		
 		if(res == (NRF_DATA_READY))

@@ -21,8 +21,8 @@ void listen(void);														// umjesto RunSlaveNode
 ///----Adrese TX uređaja----///
 char CALLS[5][5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};	
 char USED_ADDR[5][5] = {"alpha", "charl", "bravo", "delta", "echoo"};		
-
 uint8_t cnt_addr = 0;
+
 //kad se inicijalizira poziv u CALLS mijenjati adresu i ko prima i ko šalje//
 
 //potrebne funkcije
@@ -75,7 +75,7 @@ int main(void)
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	
 	initSYSTIM();
-	initNRF24L01(node_type);
+	initNRF24L01(ADDR_SRV);
 	
 	runSlaveNodeSYS();		     										// antena RX
 	return 0;
@@ -92,7 +92,7 @@ void runMasterNodeSYS(uint8_t * nrf_data)
 	
 	//while(1)
 	//{
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
+		//txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
 		printUSART2("U masterNode: %c", nrf_data);
 		for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
 			nrf_data[k] = 0x00;
@@ -110,8 +110,6 @@ void runSlaveNodeSYS(void)
     GPIOD->OTYPER |= 0x00000000;										// 
     GPIOD->OSPEEDR |= 0xFF000000; 										// 
     GPIOD->ODR &= ~0xF000;
-            	        
-    setRxAddrNRF24L01((uint8_t *)ADDR_SRV,NRF24L01_RX_ADDR_P1);
             	        
 	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
 	{
