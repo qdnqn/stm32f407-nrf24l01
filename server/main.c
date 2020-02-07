@@ -26,10 +26,10 @@ int main(void)
 		AntenaState = dataReadyNRF24L01();
 				
 		if(bus_flag == 0) {
-			bus_flag = 1;
 			
 			if(AntenaState == (NRF_DATA_READY))
 			{
+				bus_flag = 1;
 				rxDataNRF24L01(RxData);								    // primljeni podatak je upisan u nrf_data
 				commands[0] = RxData[0];
 				printUSART2("%d \n", commands[0]);
@@ -40,6 +40,8 @@ int main(void)
 					}	
 					delay_ms(1000);	  
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+					delay_ms(500);
+					bus_flag = 0;
 					clearTx();
 					cnt_addr++;
 					commands[0] = (CALL);
