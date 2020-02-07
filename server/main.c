@@ -9,6 +9,8 @@
 
 void pujdo(void);
 void feedPujdo(void);
+void startPujdo();
+void stopPujdo();
 
 uint32_t tmp;
 uint8_t code;
@@ -27,6 +29,8 @@ int main(void)
 	initUSART2(USART2_BAUDRATE_921600);
 	initNRF24L01(ADDR_SRV);
     startBlink("red");
+    
+    pujdo();
     
     printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	printUSART2("w nRF24L01 Tx-Rx - Server\n");
@@ -58,7 +62,7 @@ int main(void)
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
 					clearTx();
 					clearRx();
-					pujdo();
+					startPujdo();
 				}
 			} else if(commands[1] == (CONNECT)) {//connect
 				printUSART2("Trying connect with code %d\n", commands[0]);
@@ -129,8 +133,15 @@ void pujdo(void)
 	TIM7->DIER = 0x0001;												// enable 
 	
 	NVIC_SetPriority(TIM7_IRQn, 0);
-	NVIC_EnableIRQ(TIM7_IRQn);
-	TIM7->CR1 |= TIM_CR1_CEN;											// 	
+	NVIC_EnableIRQ(TIM7_IRQn);											// 	
+}
+
+void startPujdo(){
+	TIM7->CR1 |= TIM_CR1_CEN;
+} 
+
+void stopPujdo(){
+	TIM7->CR1 &= ~TIM_CR1_CEN;
 }
 
 void feedPujdo(void){
@@ -141,6 +152,8 @@ void TIM7_IRQHandler(void)
 {
 	if(TIM7->SR & 0x0001)
 	{
+		TIM7->CR1 &= ~TIM_CR1_CEN;
+		TIM7->SR = 0x0000;
 		reserved = 0;
 		tmp = genRIN();
 		code = tmp>>24;
