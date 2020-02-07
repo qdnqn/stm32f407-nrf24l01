@@ -1,0 +1,50 @@
+#include "server.h"
+
+uint8_t AntenaStateState;
+uint8_t RxData[NRF24L01_PIPE_LENGTH];
+uint8_t TxData[NRF24L01_PIPE_LENGTH];
+
+uint8_t RxCnt = 0;
+uint8_t TxCnt = 0;
+
+void appendRx(char tmp){
+	RxData[RxCnt] = tmp;
+	RxCnt++;
+	
+	if(RxCnt >= NRF24L01_PIPE_LENGTH){
+		RxCnt = 0;
+	}
+}
+
+void clearRx(){
+	uint8_t i;
+	
+	for(i=0;i<NRF24L01_PIPE_LENGTH;i++){
+		RxData[i] = 0;
+	}
+}
+
+void resetRxCnt(){
+	RxCnt = 0;
+}
+
+void appendTx(char tmp){
+	TxData[TxCnt] = tmp;
+	TxCnt++;
+	
+	if(TxCnt >= NRF24L01_PIPE_LENGTH){
+		TxCnt = 0;
+	}
+}
+
+void clearTx(){
+	uint8_t i;
+	
+	for(i=0;i<NRF24L01_PIPE_LENGTH;i++){
+		TxData[i] = 0;
+	}
+}
+
+void resetTxCnt(){
+	TxCnt = 0;
+}

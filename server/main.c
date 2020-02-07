@@ -2,6 +2,9 @@
 #include "usart.h"
 #include "delay.h"
 #include "nrf24l01.h"
+#include "server.h"
+#include "control_server.h"
+#include "led.h"
 
 ///----Simboli za kontrolu----///
 #define CONNECT				97
@@ -22,8 +25,6 @@ char ADDR_TX_P2[5] = "bravo";
 char ADDR_TX_P3[5] = "delta";
 char ADDR_TX_P4[5] = "echoo";
 
-void startBlink(char color);
-
 int main(void)
 {	
 	uint8_t cnt_addr = 0;
@@ -33,9 +34,10 @@ int main(void)
 	uint8_t z;
 	uint8_t commands[2];	
 	
+	initBlink();
 	initUSART2(USART2_BAUDRATE_921600);
 	initNRF24L01(ADDR_SRV);
-    startBlink('r');
+    startBlink("red");
             	        
     setRxAddrNRF24L01((uint8_t *)ADDR_SRV, NRF24L01_RX_ADDR_P1);		// adresa servera
             	        
@@ -82,28 +84,4 @@ int main(void)
 			}
 		}
 	return 0;
-}
-
-
-void startBlink(char color) {
-	if(color == 'r') {  								
-		RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//
-		GPIOD->MODER |= 0xAA000000;             							//
-		GPIOD->OTYPER |= 0x00000000; 										//
-		GPIOD->AFR[1] |= 0x22220000;
-		
-		RCC->APB1ENR |= RCC_APB1ENR_TIM4EN; 							
-		TIM4->PSC = 2000 - 1;											//T = 0.2s, f = 5Hz												 											
-		TIM4->ARR = 8400;
-		
-		TIM4->CCR2 = 0x0000;											
-					
-		TIM4->CCMR1 |= (TIM_CCMR1_OC2PE)|(TIM_CCMR1_OC2M_1)|(TIM_CCMR1_OC2M_0);					
-																						
-		TIM4->CCER &= ~((TIM_CCER_CC1P)|(TIM_CCER_CC2P));
-		TIM4->CR1 |= (TIM_CR1_ARPE)|(TIM_CR1_URS);
-		TIM4->EGR |= TIM_EGR_UG;											
-		TIM4->CCER |= (TIM_CCER_CC1E)|(TIM_CCER_CC2E);										
-		TIM4->CR1 |= TIM_CR1_CEN;											
-	}
 }
