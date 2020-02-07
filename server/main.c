@@ -3,146 +3,76 @@
 #include "delay.h"
 #include "nrf24l01.h"
 
-char ADDR_SERV[5] = "CHSRV"; 											// Adresa servera
-char ADDR_BUS[5] = "CHBUS";												// Adresa busa
+///----Simboli za kontrolu----///
+#define CONNECT				97
+#define FREE_CHANNEL		98
+#define CONFIRM				99
+#define CALL				100
+#define HANG_UP				101
 
-void connect();															//
-void listen(void);														// umjesto RunSlaveNode
-
-
-///----Simboli-----///
-#define TX_P0			0
-#define TX_P1			1
-#define TX_P2			2
-#define TX_P3			3
-#define TX_P4			4
-///----Kraj simbola----///
-
-///----Adrese TX uređaja----///
+char ADDR_SRV[6] = "CHSRV"; 											// Adresa servera
+char ADDR_BUS[6] = "CHBUS";												// Adresa busa
+												
 char CALLS[5][5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};	
 char USED_ADDR[5][5] = {"alpha", "charl", "bravo", "delta", "echoo"};		
 
-uint8_t cnt_addr = 0;
-//kad se inicijalizira poziv u CALLS mijenjati adresu i ko prima i ko šalje//
-
-//potrebne funkcije
-//connect() za klijenta, da dobije se adresa pločice koja se povezuje na server
-//
 char ADDR_TX_P0[5] = "alpha";													
 char ADDR_TX_P1[5] = "charl";
 char ADDR_TX_P2[5] = "bravo";
 char ADDR_TX_P3[5] = "delta";
 char ADDR_TX_P4[5] = "echoo";
-///----Kraj TX adresa----///
 
-///----Funkcije za kontrolu-----///
 void startBlink(char color);
-
-///----Kraj funkcija za kontrolu-----///
-
-///----Varijable za kontrolu----///
-#define BOOT			    0
-#define CHOOSE_OPTION		1
-#define WAIT_FOR_CALL		2
-#define CALL         		3
-#define ADDR_OK				5
-#define FETCHED_OK			6
-#define GET_ADDR_OK 		7
-volatile uint8_t ControlState = (BOOT);
-char server_addr[5];
-///----Kraj kontrole----///
-
-void runMasterNodeSYS(uint8_t * nrf_data);
-void runSlaveNodeSYS(void);
 
 int main(void)
 {	
-	initUSART2(USART2_BAUDRATE_921600);
-	
-	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	printUSART2("w STM32F407 - CS43L22 Audio DAC MIC I2S demo");
-	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	
-	printUSART2("-> SYS: init completed\n");
-	SPI2->I2SCFGR |= SPI_I2SCFGR_I2SE; 
-	uint8_t node_type = (NRF24L01_NODE_TYPE_RX);
-
-	delay_ms(10);
-	//node_type = (NRF24L01_NODE_TYPE_TX);
-	 
-	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	printUSART2("w nRF24L01 Server - TYPE[%d] ",node_type);
-	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	
-	initSYSTIM();
-	initNRF24L01(node_type);
-	
-	runSlaveNodeSYS();		     										// antena RX
-	return 0;
-}
-
-
-void runMasterNodeSYS(uint8_t * nrf_data)
-{
-	//potrebno resetovati antenu, i ponovo je init ali u TX mode//
-	//implementirati funkciju za deinit antene//
-	
-	
-	uint8_t k, i;
-	
-	//while(1)
-	//{
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
-		printUSART2("U masterNode: %c", nrf_data);
-		for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
-			nrf_data[k] = 0x00;
-	//}
-}
-
-void runSlaveNodeSYS(void)
-{
+	uint8_t cnt_addr = 0;
 	uint8_t k, i, res;
-	uint8_t nrf_data[NRF24L01_PIPE_LENGTH];
-	uint8_t bus_flag = 0;	
-		
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//  
-    GPIOD->MODER |= 0x55000000;             							// 
-    GPIOD->OTYPER |= 0x00000000;										// 
-    GPIOD->OSPEEDR |= 0xFF000000; 										// 
-    GPIOD->ODR &= ~0xF000;
+	uint8_t nrf_data[32];
+	uint8_t bus_flag = 0;
+	uint8_t z;
+	uint8_t commands[2];	
+	
+	initUSART2(USART2_BAUDRATE_921600);
+	initNRF24L01(ADDR_SRV);
+    startBlink('r');
+            	        
+    setRxAddrNRF24L01((uint8_t *)ADDR_SRV, NRF24L01_RX_ADDR_P1);		// adresa servera
             	        
 	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
 	{
-		setTxAddrNRF24L01(ADDR_SERV);
+		setTxAddrNRF24L01(ADDR_BUS);									// adresa sa koje sluša
 		res = dataReadyNRF24L01();
-		
+				
 		if(bus_flag == 0) {
-			//bus_flag = 1;
+			bus_flag = 1;
 			
 			if(res == (NRF_DATA_READY))
 			{
 				rxDataNRF24L01(nrf_data);								// primljeni podatak je upisan u nrf_data
-				printUSART2("U slave mode: %c", nrf_data[0]);
-				uint8_t z;
-				uint8_t commands[2];
-				for(z=0;z<2;z++) {
-					commands[z] = (uint8_t)(USED_ADDR[cnt_addr]);
-				}	
-				if(commands[0] == 97) {//connect
+				commands[0] = nrf_data[0];
+				printUSART2("%d \n", commands[0]);
+				if(commands[0] == (CONNECT)) {//connect
+					printUSART2("COMMAND A EXECUTION \n");
 					uint8_t nrf2[NRF24L01_PIPE_LENGTH];
-					for(i=0;i<5;i++) {
-							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr]);
+					for(i=0;i<32;i++) {
+						if(i < 5) 
+							nrf2[i] = (uint8_t)(USED_ADDR[cnt_addr][i]);
+						else
+							nrf2[i] = 1;
 					}
-					setTxAddrNRF24L01(ADDR_BUS);
+					
+					delay_ms(2000);
+					
 					txDataNRF24L01((uint8_t*)ADDR_BUS, nrf2);
 					bus_flag = 0;
 					cnt_addr++;
-					commands[0] = 100;
+					commands[0] = (CALL);
 					}
-					else if(commands[0] == 98) {//call
+					else if(commands[0] == (CALL)) {//call
 						
 					}
-					else if(commands[0] == 99) {//hangup
+					else if(commands[0] == (HANG_UP)) {//hangup
 					
 					}
 					else {
@@ -151,7 +81,9 @@ void runSlaveNodeSYS(void)
 				}
 			}
 		}
-	}
+	return 0;
+}
+
 
 void startBlink(char color) {
 	if(color == 'r') {  								
