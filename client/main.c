@@ -5,13 +5,10 @@
 #include "cs43l22.h"
 #include "pdm_filter.h"
 #include "nrf24l01.h"
-#include "fir.h"
-#include "fft.h"
+#include "client.h"
 
-
-
-char ADDR_SERV[5] = "CHSRV"; 											// Adresa servera
-char ADDR_BUS[5] = "CHBUS";												// Adresa busa
+char ADDR_SERV[6] = "CHSRV"; 											// Adresa servera
+char ADDR_BUS[6] = "CHBUS";												// Adresa busa
 
 void connect();															//
 void listen(void);														// umjesto RunSlaveNode
@@ -93,13 +90,15 @@ int main(void)
 	{// init as Tx node
 		node_type = (NRF24L01_NODE_TYPE_TX);
 	}
+	
+	node_type = (NRF24L01_NODE_TYPE_TX);
 	 
 	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	printUSART2("w nRF24L01 Tx-Rx demo - TYPE[%d] ",node_type);
+	printUSART2("w nRF24L01 Tx-Rx demo - TYPE[%d] ", node_type);
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	
 	initSYSTIM();
-	initNRF24L01(node_type);
+	initNRF24L01(ADDR_BUS);
 	
 	uint8_t i = 0;
 	///----Dio za kontrolu toka----///
@@ -107,16 +106,22 @@ int main(void)
 		case(BOOT):
 		{
 			startBlink('r');
-			nrf2[i] = 'a';
-			txDataNRF24L01((uint8_t *)ADDR_SERV, nrf2);
+			nrf2[0] = 'a';
+			
+			txDataNRF24L01((uint8_t *)ADDR_SERV, nrf2);				
+			setRxMode();	
+					
+			printUSART2("SENT WAITING FOR RESPONSE\n");
 			
 			while(1)
 			{
-			setTxAddrNRF24L01(ADDR_BUS);
-			res = dataReadyNRF24L01();
-			
+				setTxAddrNRF24L01(ADDR_SERV);
+				res = dataReadyNRF24L01();
+								
 				if(res == (NRF_DATA_READY))
 				{
+					printUSART2("RESS2222 \n");
+					
 				    rxDataNRF24L01(nrf_data);
 					for(i=0;i<5;i++) {	
 						MyAddr[i] = nrf_data[i];
@@ -151,7 +156,7 @@ void runMasterNodeSYS1(uint8_t nrf_data)
 	uint8_t k, i;
 	while(1)
 	{
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, addr);
+		//txDataNRF24L01((uint8_t *)c_nrf_slave_addr, addr);
 		//printUSART2("\nU masterNode: %c", nrf_data);
 		//for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
 			//nrf_data[k] = 0x00;
@@ -186,7 +191,7 @@ void runMasterNodeSYS(PDMFilter_InitStruct *filter)
 			i++;
 		}
 
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
+		//txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
 				
 		for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
 			nrf_data[k] = 0x00;
@@ -219,7 +224,7 @@ void runSlaveNodeSYS(void)
             	        
 	while(1)
 	{
-		setTxAddrNRF24L01(c_nrf_master_addr);
+		//setTxAddrNRF24L01(c_nrf_master_addr);
 		res = dataReadyNRF24L01();
 		
 		if(res == (NRF_DATA_READY))

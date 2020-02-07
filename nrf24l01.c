@@ -1,34 +1,18 @@
 #include "nrf24l01.h"
 
 volatile uint8_t g_nrf24l01_node_type;
-const char c_nrf_master_addr[6] = "MDR01";
-const char c_nrf_slave_addr[6] = "SDR00";
-volatile uint8_t * g_node_addr;
-
-//volatile uint16_t nrf_ch[NRF24L01_MAX_CHANNEL];
 volatile uint8_t nrf_mode;
 
-void initNRF24L01(uint8_t node_type) 
+void initNRF24L01(uint8_t* myStartingAddr) 
 {
 	//wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
 	// PB11	- nRF24L01 CE
-	// PB12	- nRF24L01 CS
-	// PB13	- nRF24L01 CLK
-	// PB14	- nRF24L01 MISO
-	// PB15	- nRF24L01 MOSI
+	// PA15	- nRF24L01 CS
+	// PB3	- nRF24L01 CLK
+	// PB4	- nRF24L01 MISO
+	// PB5	- nRF24L01 MOSI
 	//---------------------------------------------------------------------	
 	uint8_t reg_val;
-	
-	g_nrf24l01_node_type = node_type;
-	if(g_nrf24l01_node_type == (NRF24L01_NODE_TYPE_RX))
-	{
-		g_node_addr = (uint8_t *)c_nrf_slave_addr;
-	}
-	else
-	{
-		g_node_addr = (uint8_t *)c_nrf_master_addr;
-	}
-	
 	
 	initSPI1(SPI_BaudRatePrescaler_8);
 	
@@ -42,29 +26,38 @@ void initNRF24L01(uint8_t node_type)
 	SPI1_CS_HIGH;
 	delay_ms(100);
 	
-	setRxAddrNRF24L01((uint8_t *)g_node_addr,NRF24L01_RX_ADDR_P1);		// set Rx address 
+	setRxAddrNRF24L01((uint8_t *)myStartingAddr,NRF24L01_RX_ADDR_P1);		// set Rx address 
 
 	conRegNRF24L01(NRF24L01_RF_CH, NRF24L01_ACTIVE_CHANNEL);			// set active channel
 	//conRegNRF24L01(NRF24L01_EN_AA, 0x00);								//	Disable shock burst
 	conRegNRF24L01(NRF24L01_RX_PW_P0, NRF24L01_PIPE_LENGTH);			// set length of pipe 0
 	conRegNRF24L01(NRF24L01_RX_PW_P1, NRF24L01_PIPE_LENGTH);			// set length of pipe 1
-	//conRegNRF24L01(NRF24L01_SETUP_RETR, 0x00);							// disable retransmission 
+	//conRegNRF24L01(NRF24L01_SETUP_RETR, 0x00);						// disable retransmission 
 	//conRegNRF24L01(NRF24L01_RF_SETUP,9);
 	
 	setRxModeNRF24L01();
 	flushRxNRF24L01();
 	
-	{
+	/*{
 		uint8_t k;
 		printUSART2("\n");
 		for(k=0;k<30;k++)
 			printUSART2("REG[%xb]: %xb\n",k, getRegNRF24L01(k));
 					
 		delay_ms(3000);
-	}
+	}*/
 }
 
-void 		initDMASPI1(uint8_t*,uint8_t* );
+void setMyAddr(uint8_t *myAddr){
+	setRxAddrNRF24L01((uint8_t *)myAddr,NRF24L01_RX_ADDR_P1);
+}
+
+void setRxMode(){
+	setRxModeNRF24L01();
+	flushRxNRF24L01();
+}
+
+void initDMASPI1(uint8_t*,uint8_t* );
 
 
 void setRxAddrNRF24L01(uint8_t * addr, uint8_t reg)
