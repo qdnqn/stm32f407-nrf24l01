@@ -5,10 +5,7 @@
 #include "cs43l22.h"
 #include "pdm_filter.h"
 #include "nrf24l01.h"
-#include "fir.h"
-#include "fft.h"
-
-
+#include "client.h"
 
 char ADDR_SERV[6] = "CHSRV"; 											// Adresa servera
 char ADDR_BUS[6] = "CHBUS";												// Adresa busa

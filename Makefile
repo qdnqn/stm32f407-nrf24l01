@@ -15,6 +15,7 @@ SRCS += mp45dt02.c
 SRCS += cs43l22.c 
 SRCS += i2c.c
 SRCS += spi.c nrf24l01.c
+SRCS += client.c
 
 # Normally you shouldn't need to change anything below this line!
 #######################################################################################
