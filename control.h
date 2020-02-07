@@ -9,12 +9,6 @@
 #define FETCHED_OK			6
 #define GET_ADDR_OK 		7
 
-#define CONNECT				97
-#define FREE_CHANNEL		98
-#define CONFIRM				99
-#define CALL				100
-#define HANG_UP				101
-
 uint8_t state;
 
 #endif

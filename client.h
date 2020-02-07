@@ -3,6 +3,12 @@
 
 #include "nrf24l01.h"
 
+#define CONNECT				97
+#define FREE_CHANNEL		98
+#define CONFIRM				99
+#define CALL				100
+#define HANG_UP				101
+
 char ADDR_SERV[6]; 											
 char ADDR_BUS[6];
 char MyAddr[6];

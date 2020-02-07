@@ -89,6 +89,10 @@ int main(void)
 				
 				printUSART2("My address from server: %s", MyAddr);
 				delay_ms(2000);	
+				
+				txAppend(FREE_CHANNEL);
+				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
+				clearTx();
 			}
 		}	
 	} else if(state == CHOOSE_OPTION){
