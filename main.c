@@ -5,37 +5,16 @@
 #include "cs43l22.h"
 #include "pdm_filter.h"
 #include "nrf24l01.h"
-#include "fir.h"
-#include "fft.h"
-
-///----Adrese RX uređaja----///
-char TX_P0[5] = "0x0A";
-char TX_P1[5] = "0x0B";
-char TX_P2[5] = "0x0C";
-char TX_P3[5] = "0x0D";
-///----Kraj RX adresa----///
-
-///----Funkcije za kontrolu-----///
-void startBlink(char color);
-char getMyAddress(void);
-char enterAddress(void);
-char numOfRX(void);
-char listenToConnectedDevices(void);
-///----Kraj funkcija za kontrolu-----///
-
-///----Varijable za kontrolu----///
-#define BOOT			    0
-#define CHOOSE_OPTION		1
-#define WAIT_FOR_CALL		2
-#define CALL         		3
-#define ADDR_OK				5
-#define FETCHED_OK			6
-#define GET_ADDR_OK 		7
-volatile uint8_t ControlState = (BOOT);
-char server_addr[5];
-///----Kraj kontrole
+#include "control.h"
+#include "led.h"
+#include "client.h"
 
 #define DAC_BUFF_SIZE 128
+
+void pujdo(void);
+void feedPujdo(void);
+void startPujdo();
+void stopPujdo();
 
 PDMFilter_InitStruct Filter;
 
@@ -75,258 +54,162 @@ int main(void)
 	initCS43L22(3, 8000, dac_data, dac_data2, DAC_BUFF_SIZE);
 	printUSART2("-> SYS: init completed\n");
 	SPI2->I2SCFGR |= SPI_I2SCFGR_I2SE; 
-	
-	uint8_t node_type = (NRF24L01_NODE_TYPE_RX);
-	
+		
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6);  
 	GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR6_0);		
 
 	delay_ms(10);
-	if((GPIOC->IDR & 0x00000040) == 0x00000000)
-	{// init as Tx node
-		node_type = (NRF24L01_NODE_TYPE_TX);
-	}
 	 
 	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	printUSART2("w nRF24L01 Tx-Rx demo - TYPE[%d] ",node_type);
+	printUSART2("w nRF24L01 Tx-Rx - Client\n");
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	
 	initSYSTIM();
-	initNRF24L01(node_type);
+	initNRF24L01(ADDR_BUS);
 	
-	///----Dio za kontrolu toka----///
-	switch(ControlState) {
-		case(BOOT):
+	uint8_t i = 0;
+	pujdo();
+	
+	while(1){
+		
+	if(state == BOOT){
+		ledTurnOn("red");
+		appendTx(RESERVE);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
+		
+		while(1)
 		{
-			startBlink('r');
-			printUSART2("\nInitialiazing radio interface: \n");
-			printUSART2("Enter number of RX(to send data): ");
-			while(numOfRX() != ADDR_OK);
-			printUSART2("\nAddresa ok");
-			//while(getMyAddress() != GET_ADDR_OK);
-			//while(listenToConnectedDevices() != FETCHED_OK);
-			//printUSART2("proso listen ");
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
+			if(AntenaState == (NRF_DATA_READY))
+			{
+				rxDataNRF24L01(RxData);
+				code = RxData[0];
+				printUSART2("CODE: %d \n", code);
+				state = ADDRESS;
+				break;
+			} 
 		}	
+	} else if(state == ADDRESS){
+		ledTurnOn("green");
+		
+		printUSART2("Trying to connect!\n");
+		
+		clearTx();
+		appendTx(code);
+		appendTx(CONNECT);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
+		
+		printUSART2("Trying to recieve addres from server!\n");
+		
+		while(1)
+		{
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
+			if(AntenaState == (NRF_DATA_READY))
+			{
+								
+				rxDataNRF24L01(RxData);
+				
+				for(i=0;i<5;i++) {	
+					MyAddr[i] = RxData[i];
+				}
+				
+				printUSART2("My address from server: %s", MyAddr);
+				/*delay_ms(2000);	
+				
+				appendTx(code);
+				appendTx(FREE_CHANNEL);
+				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+				clearTx();*/
+				
+				state = CHOOSE_OPTION;
+				break;
+			} 
+		}	
+	} else if(state == CHOOSE_OPTION){
+		/*while(1){
+			clearTx();
+			appendTx(code);
+			appendTx(HANG_UP);
+			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+			clearTx();
+			
+			printUSART2("KEEPING ALIVE!\n");
+			
+			delay_ms(1000);
+		}*/
+		
+		startPujdo();
+								
+		while(1){
+			printUSART2("Enter address: ");
+			uint8_t addr = getcharUSART2();
+			clearTx();
+			appendTx(code);
+			appendTx(CALL);
+			appendTx(addr);
+			appendTx(MyAddr[0]);
+			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+			clearTx();
+			stopPujdo();
+		}
+	} else {
+	
 	}
 	
-	
-	///----Kraj kontrole toka-----///
-	
-	//if(node_type == (NRF24L01_NODE_TYPE_TX))							// ako je antena TX
-	//{
-		//runMasterNodeSYS(&Filter);
-	//}
-	//else
-	//{
-		//runSlaveNodeSYS();												// antena RX
-	//}	
+	}
 	
 	return 0;
 }
 
-void runMasterNodeSYS1(uint8_t nrf_data)
+void pujdo(void)
 {
-	//potrebno resetovati antenu, i ponovo je init ali u TX mode//
-	//implementirati funkciju za deinit antene//
-	uint8_t * addr = (uint8_t *) nrf_data;
-	uint8_t k, i;
-	while(1)
-	{
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, addr);
-		//printUSART2("\nU masterNode: %c", nrf_data);
-		//for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
-			//nrf_data[k] = 0x00;
-	}
+	RCC->APB1ENR |= RCC_APB1ENR_TIM5EN; 								// 
+	TIM5->PSC = 0x20D0-0x0001;											// 
+																		// 
+	TIM5->ARR = 0x0FFF;													// 
+	TIM5->CR1 = 0x0084;													// 
+																		//
+	TIM5->CR2 = 0x0000;
+	TIM5->CNT = 0x0000;													// 
+	TIM5->EGR |= TIM_EGR_UG;											//
+	TIM5->DIER = 0x0001;												// enable 
+	
+	NVIC_SetPriority(TIM5_IRQn, 0);
+	NVIC_EnableIRQ(TIM5_IRQn);											// 	
 }
 
-void runMasterNodeSYS(PDMFilter_InitStruct *filter)
+void startPujdo(){
+	TIM5->CR1 |= TIM_CR1_CEN;
+} 
+
+void stopPujdo(){
+	TIM5->CR1 &= ~TIM_CR1_CEN;
+	TIM5->SR = 0x0000;
+}
+
+void feedPujdo(void){
+	TIM5->CNT = 0x0000;
+}
+
+void TIM5_IRQHandler(void)
 {
-	uint8_t k, i, nrf_data[NRF24L01_PIPE_LENGTH];
-	
-	for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
-		nrf_data[k] = 0x00;
-	
-	while(1)
+	if(TIM5->SR & 0x0001)
 	{
-		for(k_mic=0;k_mic<64;k_mic++)
-		{
-			while((SPI2->SR & 0x0001) == 0x0000); 							// wait until data receiving is completed
-			while(SPI2->SR & 0x0080); 										// wait until SPI becomes idle
-			buff[k_mic] = HTONS(SPI2->DR);
-		}
-				
-		PDM_Filter_64_LSB((uint8_t *)buff, (uint16_t *)outdata, volume , filter);
+		TIM5->SR = 0x0000;
 		
-		i = 0;
-		k = 0;
-		while(k<(NRF24L01_PIPE_LENGTH)){
-			nrf_data[k] = ((outdata[i]&0xFF00) >> 8);
-			nrf_data[k+1] = (outdata[i]&0x00FF);
-			
-			k+=2;
-			i++;
-		}
-
-		txDataNRF24L01((uint8_t *)c_nrf_slave_addr, nrf_data);
-				
-		for(k=0;k<(NRF24L01_PIPE_LENGTH);k++)
-			nrf_data[k] = 0x00;
+		clearTx();
+		appendTx(code);
+		appendTx(KEEP_ALIVE);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
 	}
-}
-
-void runSlaveNodeSYS(void)
-{
-	uint8_t k, i, res;
-	uint8_t nrf_data[NRF24L01_PIPE_LENGTH], b2[NRF24L01_PIPE_LENGTH];
-		
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//  
-    GPIOD->MODER |= 0x55000000;             							// 
-    GPIOD->OTYPER |= 0x00000000;										// 
-    GPIOD->OSPEEDR |= 0xFF000000; 										// 
-    GPIOD->ODR &= ~0xF000;
-    
-    /* Buffering */
-    
-    uint16_t buffer[16];
-    uint16_t cntb = 0;
-    uint16_t cntb_max = 16;
-    uint8_t dac_mode = 0;
-    uint16_t imf=0;
-    
-    /* Buffering end */
-    
-    /* Moving average */    
-    /* */
-            	        
-	while(1)
-	{
-		setTxAddrNRF24L01(c_nrf_master_addr);
-		res = dataReadyNRF24L01();
-		
-		if(res == (NRF_DATA_READY))
-		{
-			rxDataNRF24L01(nrf_data);
-			
-			
-			k=0;
-		
-			for(i=0;i<NRF24L01_PIPE_LENGTH/2;i++){				
-				buffer[cntb] = ((nrf_data[k]) << 8)|nrf_data[k+1];
-								
-				cntb++;
-				k+=2;
-			}
-						
-			if(cntb >= cntb_max){								
-				for(k=0;k<cntb_max;k++){
-					if(!dac_mode){
-						dac_data[n_mic] = buffer[k];								 
-						dac_data[n_mic+1] = buffer[k];	
-					} else {
-						dac_data2[n_mic] = buffer[k];								 
-						dac_data2[n_mic+1] = buffer[k];
-					}	
-					
-					n_mic+=2;
-				}
-												
-				cntb = 0;
-				
-				if(n_mic > DAC_BUFF_SIZE){
-					n_mic = 0;
-					
-					if(!dac_mode){
-						dac_mode = 1;
-					} else {
-						dac_mode = 0;
-					}
-				}
-			}
-		}
-	}
-}
-
-
-void startBlink(char color) {
-	if(color == 'r') {  								
-		RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;  								//
-		GPIOD->MODER |= 0xAA000000;             							//
-		GPIOD->OTYPER |= 0x00000000; 										//
-		GPIOD->AFR[1] |= 0x22220000;
-		
-		RCC->APB1ENR |= RCC_APB1ENR_TIM4EN; 							
-		TIM4->PSC = 2000 - 1;											//T = 0.2s, f = 5Hz												 											
-		TIM4->ARR = 8400;
-		
-		TIM4->CCR2 = 0x0000;											
-					
-		TIM4->CCMR1 |= (TIM_CCMR1_OC2PE)|(TIM_CCMR1_OC2M_1)|(TIM_CCMR1_OC2M_0);					
-																						
-		TIM4->CCER &= ~((TIM_CCER_CC1P)|(TIM_CCER_CC2P));
-		TIM4->CR1 |= (TIM_CR1_ARPE)|(TIM_CR1_URS);
-		TIM4->EGR |= TIM_EGR_UG;											
-		TIM4->CCER |= (TIM_CCER_CC1E)|(TIM_CCER_CC2E);										
-		TIM4->CR1 |= TIM_CR1_CEN;											
-	}
-}
-
-char numOfRX(void) {
-	uint8_t nrf_data;
-	nrf_data = getcharUSART2();
-	putcharUSART2(nrf_data);
-	runMasterNodeSYS1(nrf_data);
-	return ADDR_OK;
-}
-
-//char enterAddress(void) {
-	//uint8_t i = 0;
-	//uint8_t rbr = 0;
-	//char server_addr[5];												//Adrese su formata 0x0A
-	//while(i < 5) {
-		//server_addr[i] = getcharUSART2();
-		//if(server_addr[i] == 13) {
-			//break;
-		//}
-		//printUSART2("%c", server_addr[i]);
-		//i++;
-	//}
-	
-	//if(server_addr[0] == 48 && server_addr[1] == 120 && server_addr[4] == 13) {// x13 je ENTER, treba staviti završni karakter za adresu, napraviti konvenciju
-		//uint8_t k = 0;
-		//printUSART2("\n\t- Adresa prihvacena!\n");
-		/////Napisati sve adrese od svih TX antena, i provjeriti koja od tih adresa odgovara unesenoj!///
-		//if(server_addr[3] == TX_P0[3]) {								// konvencija, samo se LSB razlikuje u svakoj adresi
-			//rbr = 0;							
-		//}
-		//else if(server_addr[3] == TX_P1[3]) {
-			//rbr = 1;
-		//}
-		//else if(server_addr[3] == TX_P2[3]) {
-			//rbr = 2;
-		//}
-		//else if(server_addr[3] == TX_P3[3]) {
-			//rbr = 3;
-		//}
-		//printUSART2("\nOdabrana je adresa TX_P%d: ", rbr);
-		//while(k<5) {
-			//printUSART2("%c",server_addr[k]);
-			//k++;
-		//}
-		//printUSART2("\n");
-		//return ADDR_OK;
-	//}
-	//else
-		//printUSART2("\n\t- Neispravna adresa!\nEnter your address: ");
-	
-	
-//}
-
-char getMyAddress(void) {
-	
-}
-
-char listenToConnectedDevices(void) {
-	
-		
 }
