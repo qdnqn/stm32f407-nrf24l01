@@ -13,7 +13,7 @@ void startPujdo();
 void stopPujdo();
 
 uint32_t tmp;
-uint8_t code;
+uint8_t code, codeClient;
 uint8_t current_addr;
 uint8_t reserved;
 
@@ -59,6 +59,7 @@ int main(void)
 			if(commands[0] == RESERVE){
 				if(!reserved){
 					reserved = 1;
+					codeClient = commands[1];
 					printUSART2("CODE: %d\n", code);
 					appendTx(code);
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
@@ -72,6 +73,8 @@ int main(void)
 				
 				if(code == commands[0]){
 					feedPujdo();
+					
+					appendTx(codeClient);
 					
 					if(cnt_addr < 5) {
 					for(i=0;i<5;i++) {
@@ -111,25 +114,30 @@ int main(void)
 					clearRx();
 				}
 			} else if(commands[1] == (CHECK_CALLS)){
-				feedPujdo();
-				if(iHaveCalls(commands[2])){
-					appendTx(HAVE_CALL);
-					
-					for(i=0;i<5;i++){
-						appendTx(USED_ADDR[CALLERS[textAddrToIndex(commands[2])]][i]);
+				if(code == commands[0]){
+					feedPujdo();
+					appendTx(codeClient);
+					if(iHaveCalls(commands[2])){
+						appendTx(HAVE_CALL);
+						
+						for(i=0;i<5;i++){
+							appendTx(USED_ADDR[CALLERS[textAddrToIndex(commands[2])]][i]);
+						}
+					} else {
+						appendTx(NO_CALL);
 					}
-				} else {
-					appendTx(NO_CALL);
+					
+					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+					clearTx();
 				}
-				
-				txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-				clearTx();
 			} else if(commands[1] == (CALL)){
 				if(code == commands[0]){
 					/* commands[2] -> caller address 
 					 * commands[3] -> calling address
 					 */
 					 
+					appendTx(codeClient);
+					
 					feedPujdo();
 					printUSART2("Trying to call %d! \n", commands[3]);
 					
@@ -147,6 +155,23 @@ int main(void)
 					
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
 					clearTx();
+				}
+			} else if(commands[1] == (HANG_UP)){
+				if(code == commands[0]){
+					/* commands[2] -> caller address 
+					 * commands[3] -> calling address
+					 */
+					 
+					 appendTx(codeClient);
+					 
+					feedPujdo();
+					printUSART2("Hanging up call with %d! \n", commands[3]);
+					
+					if(hangUpCall(commands[2],commands[3])){
+						printUSART2("Call hanged up!\n");
+					} else {
+						printUSART2("Failed to hang up call!\n");
+					}
 				}
 			} else if(commands[1] == (KEEP_ALIVE)) {//hangup
 				if(code == commands[0]){
