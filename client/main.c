@@ -242,6 +242,7 @@ int main(void)
 		}
 	} else if(state == STANDBY){
 		uint8_t gotResponse = 0;
+		setRxMode();
 		
 		while(1){
 			printUSART2("CHECKING FOR CALLS...\n");
@@ -249,12 +250,11 @@ int main(void)
 			appendTx(codeClient);
 			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
 			clearTx();
-			setRxMode();
 			
 			while(1)
 			{
 				setTxAddrNRF24L01(ADDR_SERV);
-				delay_us(500);
+				delay_ms(4);
 				AntenaState = dataReadyNRF24L01();
 								
 				if(AntenaState == (NRF_DATA_READY))
