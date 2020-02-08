@@ -52,7 +52,10 @@ uint8_t commands[2];
 
 uint8_t parser_command(void);
 uint8_t checkCallStatus(char caller, char calling);
+uint8_t hangUpCall(char caller, char calling);
 uint8_t textAddrToIndex(char addr);
+char* textAddrToFullAddress(char addr);
+
 void appendRx(char tmp);
 void clearRx();
 void appendTx(char tmp);

@@ -60,7 +60,10 @@ int main(void)
 				if(!reserved){
 					reserved = 1;
 					codeClient = commands[1];
+					printUSART2("CODE FROM CLIENT: %d\n", codeClient);
 					printUSART2("CODE: %d\n", code);
+					
+					appendTx(codeClient);
 					appendTx(code);
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
 					clearTx();
@@ -69,22 +72,22 @@ int main(void)
 				}
 			} else if(commands[1] == (CONNECT)) {//connect
 				printUSART2("Trying connect with code %d\n", commands[0]);
-				printUSART2("Server code is: %d", code);
+				printUSART2("Server code is: %d\n", code);
 				
 				if(code == commands[0]){
 					feedPujdo();
 					
+					clearTx();
 					appendTx(codeClient);
+					
+					printUSART2("APPENDING CLIENT CODE %d\n", codeClient);
 					
 					if(cnt_addr < 5) {
 					for(i=0;i<5;i++) {
 						appendTx((uint8_t)(USED_ADDR[cnt_addr][i]));
 					}	
 										
-					delay_ms(1000);	  
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					delay_ms(500);
-					bus_flag = 0;
 					clearTx();
 					cnt_addr++;
 					commands[0] = (CALL);

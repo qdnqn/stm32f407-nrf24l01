@@ -75,11 +75,39 @@ uint8_t checkCallStatus(char caller, char calling){
 	}
 }
 
+uint8_t hangUpCall(char caller, char calling){
+	if(CALLING[textAddrToIndex(calling)] == 1){
+		CALLING[textAddrToIndex(calling)] = 0;
+		CALLING[textAddrToIndex(caller)] = 0;
+		CALLERS[textAddrToIndex(calling)] = 0;
+		
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 uint8_t iHaveCalls(char myAddr){
 	if(CALLING[textAddrToIndex(myAddr)] == 1){
 		return 1;
 	} else {
 		return 0;
+	}
+}
+
+char* textAddrToFullAddress(char addr){
+	if(addr == 'a'){
+		return ADDR_TX_P0;
+	} else if(addr == 'b'){
+		return ADDR_TX_P1;
+	} else if(addr == 'c'){
+		return ADDR_TX_P2;
+	} else if(addr == 'd'){
+		return ADDR_TX_P3;
+	} else if(addr == 'e'){
+		return ADDR_TX_P4;
+	} else {
+		return OUTOFBOUNDS_INDEX;
 	}
 }
 

@@ -151,9 +151,11 @@ int main(void)
 	if(state == BOOT){
 		ledTurnOn("red");
 		
+		uint8_t gotResponse = 0;
+		
 		while(1){
 			appendTx(RESERVE);
-			appendTx(code);
+			appendTx(codeClient);
 			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
 			clearTx();
 			setRxMode();
@@ -161,15 +163,16 @@ int main(void)
 			while(1)
 			{
 				setTxAddrNRF24L01(ADDR_SERV);
-				delay_us(500);
+				delay_ms(1);
 				AntenaState = dataReadyNRF24L01();
 								
 				if(AntenaState == (NRF_DATA_READY))
 				{
 					rxDataNRF24L01(RxData);
+										
 					if(codeClient == RxData[0]){
+						gotResponse = 1;
 						code = RxData[1];
-						printUSART2("CODE: %d \n", code);
 						state = ADDRESS;
 						break;
 					} else {
@@ -179,9 +182,14 @@ int main(void)
 					break;
 				}
 			}	
+			
+			if(gotResponse == 1){
+				break;
+			}
 		}
 	} else if(state == ADDRESS){
 		ledTurnOn("green");
+		uint8_t gotResponse = 0;
 		
 		while(1){
 			printUSART2("Trying to connect!\n");
@@ -198,7 +206,7 @@ int main(void)
 			while(1)
 			{
 				setTxAddrNRF24L01(ADDR_SERV);
-				delay_us(500);
+				delay_ms(4);
 				AntenaState = dataReadyNRF24L01();
 								
 				if(AntenaState == (NRF_DATA_READY))
@@ -206,11 +214,13 @@ int main(void)
 					rxDataNRF24L01(RxData);
 					
 					if(codeClient == RxData[0]){
+						gotResponse = 1;
+												
 						for(i=1;i<6;i++) {	
 							MyAddr[i] = RxData[i];
 						}
-						
-						printUSART2("My address from server: %s\n", MyAddr);
+												
+						printUSART2("My address from server: %s \n", MyAddr);
 						delay_ms(1000);
 						state = STANDBY;	
 						
@@ -224,13 +234,19 @@ int main(void)
 				} else {
 					break;
 				}
+			}
+			
+			if(gotResponse == 1){
+				break;
 			}	
 		}
 	} else if(state == STANDBY){
 		uint8_t gotResponse = 0;
+		
 		while(1){
 			printUSART2("CHECKING FOR CALLS...\n");
 			appendTx(RESERVE);
+			appendTx(codeClient);
 			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
 			clearTx();
 			setRxMode();
@@ -289,6 +305,8 @@ int main(void)
 					delay_ms(2500);
 					state = FREE_CHANNEL_C;
 				}
+				
+				break;
 			}
 		}
 	} else if(state == CHOOSE_OPTION){	
