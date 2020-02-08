@@ -322,6 +322,7 @@ int main(void)
 		state = STANDBY;
 	} else if(state == RADIO_MODE){		
 		setRxAddrNRF24L01((uint8_t *)MyAddr,NRF24L01_RX_ADDR_P1);
+		
 		uint8_t k = 0, i = 0;
 		uint16_t buffer[16];
 		uint16_t cntb = 0;
@@ -329,9 +330,10 @@ int main(void)
 		uint8_t dac_mode = 0;
 		uint16_t imf=0;
 		
+		setRxMode();
+		
 		while(1){
 			while((GPIOA->IDR & 0x0001) == 0x0001){
-				printUSART2("NOW Transmiting \n");
 				n_mic = 0;
 				for(k=0;k<64;k++){
 					dac_data[n_mic] = 0;								 
@@ -369,13 +371,11 @@ int main(void)
 
 				txDataNRF24L01((uint8_t *)OtherAddr, TxData);
 				clearTx();
-			} 
-			
-			setRxMode();
+			}
 			
 			setTxAddrNRF24L01(OtherAddr);
 			AntenaState = dataReadyNRF24L01();
-			
+						
 			if(AntenaState == (NRF_DATA_READY))
 			{
 				rxDataNRF24L01(RxData);
@@ -391,7 +391,7 @@ int main(void)
 				
 				if(buffer[0] == (uint8_t)'s' && buffer[1] == (uint8_t)'t' && buffer[2] == (uint8_t)'o' &&  buffer[3] == (uint8_t)'p'){
 					state = STANDBY;
-				}
+				} 
 							
 				if(cntb >= cntb_max){								
 					for(k=0;k<cntb_max;k++){
