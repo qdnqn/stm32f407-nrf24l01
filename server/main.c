@@ -119,7 +119,9 @@ int main(void)
 			} else if(commands[1] == (CHECK_CALLS)){
 				if(code == commands[0]){
 					feedPujdo();
+					clearTx();
 					appendTx(codeClient);
+					
 					if(iHaveCalls(commands[2])){
 						appendTx(HAVE_CALL);
 						
