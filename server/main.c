@@ -14,6 +14,7 @@ void stopPujdo();
 
 uint32_t tmp;
 uint8_t code;
+uint8_t current_addr;
 uint8_t reserved;
 
 int main(void)
@@ -51,6 +52,7 @@ int main(void)
 			commands[0] = RxData[0];
 			commands[1] = RxData[1];
 			commands[2] = RxData[2];
+			commands[3] = RxData[3];
 			
 			printUSART2("%d - %d - %d\n", commands[0], commands[1], commands[2]);
 			
@@ -75,6 +77,7 @@ int main(void)
 					for(i=0;i<5;i++) {
 						appendTx((uint8_t)(USED_ADDR[cnt_addr][i]));
 					}	
+										
 					delay_ms(1000);	  
 					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
 					delay_ms(500);
@@ -94,18 +97,58 @@ int main(void)
 						commands[0] = (NO_MORE_ADDRESS);
 					}
 					
-					cnt_addr++;
 					commands[1] = (CALL);
 				}
-			}
-			else if(commands[1] == (FREE_CHANNEL)) {//free_chanel
+			} else if(commands[1] == (FREE_CHANNEL)) {//free_chanel
 				if(code == commands[0]){
-					bus_flag = 0;
+					stopPujdo();
+					feedPujdo();
+					
+					reserved = 0;
+					tmp = genRIN();
+					code = tmp>>24;
 					printUSART2("Chanel BUS - SERVER is free!");
 					clearRx();
 				}
-			}
-			else if(commands[1] == (HANG_UP)) {//hangup
+			} else if(commands[1] == (CHECK_CALLS)){
+				feedPujdo();
+				if(iHaveCalls(commands[2])){
+					appendTx(HAVE_CALL);
+					
+					for(i=0;i<5;i++){
+						appendTx(USED_ADDR[CALLERS[textAddrToIndex(commands[2])]][i]);
+					}
+				} else {
+					appendTx(NO_CALL);
+				}
+				
+				txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+				clearTx();
+			} else if(commands[1] == (CALL)){
+				if(code == commands[0]){
+					/* commands[2] -> caller address 
+					 * commands[3] -> calling address
+					 */
+					 
+					feedPujdo();
+					printUSART2("Trying to call %d! \n", commands[3]);
+					
+					if(checkCallStatus(commands[2],commands[3])){
+						printUSART2("Call granted!\n");
+						appendTx(CAN_CALL);
+					} else {
+						printUSART2("User is bussy!\n");
+						appendTx(USER_BUSY);
+					}
+					
+					for(i=0;i<5;i++){
+						appendTx(USED_ADDR[textAddrToIndex(commands[3])][i]);
+					}
+					
+					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+					clearTx();
+				}
+			} else if(commands[1] == (KEEP_ALIVE)) {//hangup
 				if(code == commands[0]){
 					feedPujdo();
 					printUSART2("Keeping alive! \n");
@@ -121,39 +164,40 @@ int main(void)
 
 void pujdo(void)
 {
-	RCC->APB1ENR |= RCC_APB1ENR_TIM7EN; 								// 
-	TIM7->PSC = 0x20D0-0x0001;											// 
+	RCC->APB1ENR |= RCC_APB1ENR_TIM5EN; 								// 
+	TIM5->PSC = 0x20D0-0x0001;											// 
 																		// 
-	TIM7->ARR = 0xFFFF;													// 
-	TIM7->CR1 = 0x0084;													// 
+	TIM5->ARR = 0xFFFF;													// 
+	TIM5->CR1 = 0x0084;													// 
 																		//
-	TIM7->CR2 = 0x0000;
-	TIM7->CNT = 0x0000;													// 
-	TIM7->EGR |= TIM_EGR_UG;											//
-	TIM7->DIER = 0x0001;												// enable 
+	TIM5->CR2 = 0x0000;
+	TIM5->CNT = 0x0000;													// 
+	TIM5->EGR |= TIM_EGR_UG;											//
+	TIM5->DIER = 0x0001;												// enable 
 	
-	NVIC_SetPriority(TIM7_IRQn, 0);
-	NVIC_EnableIRQ(TIM7_IRQn);											// 	
+	NVIC_SetPriority(TIM5_IRQn, 0);
+	NVIC_EnableIRQ(TIM5_IRQn);											// 	
 }
 
 void startPujdo(){
-	TIM7->CR1 |= TIM_CR1_CEN;
+	TIM5->CR1 |= TIM_CR1_CEN;
 } 
 
 void stopPujdo(){
-	TIM7->CR1 &= ~TIM_CR1_CEN;
+	TIM5->CR1 &= ~TIM_CR1_CEN;
 }
 
 void feedPujdo(void){
-	TIM7->CNT = 0x0000;
+	TIM5->CNT = 0x0000;
 }
 
-void TIM7_IRQHandler(void)
+void TIM5_IRQHandler(void)
 {
-	if(TIM7->SR & 0x0001)
+	if(TIM5->SR & 0x0001)
 	{
-		TIM7->CR1 &= ~TIM_CR1_CEN;
-		TIM7->SR = 0x0000;
+		TIM5->CR1 &= ~TIM_CR1_CEN;
+		TIM5->CNT = 0x0000;
+		TIM5->SR = 0x0000;
 		reserved = 0;
 		tmp = genRIN();
 		code = tmp>>24;

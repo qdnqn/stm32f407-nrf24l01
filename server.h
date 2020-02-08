@@ -12,10 +12,27 @@
 #define CALL				101
 #define HANG_UP				102
 #define NO_MORE_ADDRESS		103
+#define KEEP_ALIVE			104
+#define CHECK_CALLS			105
+
+#define USER_BUSY 			110
+#define CAN_CALL			111
+
+#define HAVE_CALL			112
+#define NO_CALL  			113
+
+#define ALPHA_INDEX 		0
+#define BRAVO_INDEX 		1
+#define CHARL_INDEX 		2
+#define DELTA_INDEX 		3
+#define ECHOO_INDEX 		4
+#define OUTOFBOUNDS_INDEX	5
+
 
 char ADDR_SRV[6]; 											// Adresa servera
 char ADDR_BUS[6];												// Adresa busa											
-char CALLS[5][5];	
+uint8_t CALLING[5];
+uint8_t CALLERS[5];	
 char USED_ADDR[5][5];		
 char ADDR_TX_P0[5];													
 char ADDR_TX_P1[5];
@@ -34,6 +51,8 @@ uint8_t TxCnt;
 uint8_t commands[2];
 
 uint8_t parser_command(void);
+uint8_t checkCallStatus(char caller, char calling);
+uint8_t textAddrToIndex(char addr);
 void appendRx(char tmp);
 void clearRx();
 void appendTx(char tmp);

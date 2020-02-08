@@ -11,6 +11,11 @@
 
 #define DAC_BUFF_SIZE 128
 
+void pujdo(void);
+void feedPujdo(void);
+void startPujdo();
+void stopPujdo();
+
 PDMFilter_InitStruct Filter;
 
 void runMasterNodeSYS(PDMFilter_InitStruct *);
@@ -49,10 +54,63 @@ int main(void)
 	initCS43L22(3, 8000, dac_data, dac_data2, DAC_BUFF_SIZE);
 	printUSART2("-> SYS: init completed\n");
 	SPI2->I2SCFGR |= SPI_I2SCFGR_I2SE; 
+	
+	/* Enable PA0 input & activate interupt */
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+	GPIOA->MODER &= ~0x00000003; 
+	
+	RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+	NVIC_EnableIRQ(EXTI0_IRQn);
+	SYSCFG->EXTICR[0] = SYSCFG_EXTICR1_EXTI0_PA;
+	EXTI->IMR = EXTI_IMR_MR0;											// enable interrupt on EXTI_Line0
+	EXTI->EMR &= ~EXTI_EMR_MR0;											// disable event on EXTI_Line0
+	EXTI->RTSR = EXTI_RTSR_TR0;	
+	EXTI->FTSR = 0x00000000;	
+	/* */
 		
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+	
+	/* 
+	 * Uncomment this if you want to test RADIO_MODE instantly
+	 */	
+	
+	/*RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6);  
-	GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR6_0);		
+	GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR6_0);	
+	
+	delay_ms(10);
+	if((GPIOC->IDR & 0x00000040) == 0x00000000)
+	{// init as Tx node
+		MyAddr[0] = 'e';
+		MyAddr[1] = 'd';
+		MyAddr[2] = 'm';
+		MyAddr[3] = 'i';
+		MyAddr[4] = 'r';
+		
+		OtherAddr[0] = 'a';
+		OtherAddr[1] = 'd';
+		OtherAddr[2] = 'n';
+		OtherAddr[3] = 'a';
+		OtherAddr[4] = 'n';
+	} else {
+		MyAddr[0] = 'a';
+		MyAddr[1] = 'd';
+		MyAddr[2] = 'n';
+		MyAddr[3] = 'a';
+		MyAddr[4] = 'n';
+		
+		OtherAddr[0] = 'e';
+		OtherAddr[1] = 'd';
+		OtherAddr[2] = 'm';
+		OtherAddr[3] = 'i';
+		OtherAddr[4] = 'r';
+		
+		talkingOrListening = 1;
+	}
+	
+	state = RADIO_MODE;
+	*/
+
+	/* End of testing RADIO_MODE */
 
 	delay_ms(10);
 	 
@@ -61,9 +119,20 @@ int main(void)
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	
 	initSYSTIM();
+	initSYSTIMER();
+	
+	/* For production uncomment this:
+	 */ 
 	initNRF24L01(ADDR_BUS);
 	
+	/* For testing RADIO_MODE uncomment this:
+	 */
+	
+	//initNRF24L01(MyAddr);
+	
+	
 	uint8_t i = 0;
+	pujdo();
 	
 	while(1){
 		
@@ -101,7 +170,7 @@ int main(void)
 		setRxMode();
 		
 		printUSART2("Trying to recieve addres from server!\n");
-		
+				
 		while(1)
 		{
 			setTxAddrNRF24L01(ADDR_SERV);
@@ -116,43 +185,398 @@ int main(void)
 					MyAddr[i] = RxData[i];
 				}
 				
-				printUSART2("My address from server: %s", MyAddr);
-				/*delay_ms(2000);	
+				printUSART2("My address from server: %s\n", MyAddr);
+				delay_ms(1000);
+				state = STANDBY;	
 				
 				appendTx(code);
 				appendTx(FREE_CHANNEL);
 				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-				clearTx();*/
+				clearTx();
 				
-				state = CHOOSE_OPTION;
+				break;
+			}
+			
+		}	
+	} else if(state == STANDBY){
+		printUSART2("CHECKING FOR CALLS...\n");
+		appendTx(RESERVE);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
+		
+		while(1)
+		{
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
+			if(AntenaState == (NRF_DATA_READY))
+			{
+				rxDataNRF24L01(RxData);
+				code = RxData[0];
+				printUSART2("CODE: %d \n", code);
+				break;
+			} 
+		}
+		
+		appendTx(code);
+		appendTx(CHECK_CALLS);
+		appendTx(MyAddr[0]);
+				
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
+		
+		while(1)
+		{
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
+			if(AntenaState == (NRF_DATA_READY))
+			{
+				rxDataNRF24L01(RxData);
+				pendingCalls = RxData[0];
 				break;
 			} 
 		}	
-	} else if(state == CHOOSE_OPTION){
-		while(1){
-			clearTx();
-			appendTx(code);
-			appendTx(HANG_UP);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-			clearTx();
+		
+		if(pendingCalls == HAVE_CALL){
+			state = RADIO_MODE;
 			
-			printUSART2("KEEPING ALIVE!\n");
-			
-			delay_ms(1000);
+			for(i=1;i<6;i++){
+				OtherAddr[i-1] = RxData[i];
+			}
+		} else {
+			delay_ms(2500);
 		}
 		
-		/*uint8_t addr = getcharUSART2();
-		appendTx(CALL);
-		appendTx(addr);
-		
+		state = FREE_CHANNEL_C;
+	} else if(state == CHOOSE_OPTION){	
+		startPujdo();
+								
 		while(1){
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
-		}*/
+			printUSART2("Enter address: ");
+			uint8_t addr = getcharUSART2();
+			clearTx();
+			appendTx(code);
+			appendTx(CALL);
+			appendTx(MyAddr[0]);
+			appendTx(addr);
+			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+			clearTx();
+			stopPujdo();
+			
+			setRxMode();
+			
+			while(1)
+			{
+				setTxAddrNRF24L01(ADDR_SERV);
+				AntenaState = dataReadyNRF24L01();
+								
+				if(AntenaState == (NRF_DATA_READY))
+				{
+					rxDataNRF24L01(RxData);
+					statusOfCall = RxData[0];
+					
+					for(i=1;i<6;i++) {	
+						OtherAddr[i] = RxData[i];
+					}
+					
+					printUSART2("Response from server ---->\n");
+					
+					if(statusOfCall == CAN_CALL){
+						printUSART2("CAN CALLLLLL HOORAY %s !\n", OtherAddr);
+						clearTx();
+						appendTx(code);
+						appendTx(FREE_CHANNEL);
+						txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
+						clearTx();
+					} else {
+						printUSART2("No call for you.\n");
+					}
+					
+					break;
+				} 
+			}
+			
+			if(statusOfCall == CAN_CALL){
+				state = RADIO_MODE;
+			} else {
+				state = STANDBY;
+			}
+			
+			break;
+		}
+	} else if(state == FREE_CHANNEL_C){
+		clearTx();
+		appendTx(code);
+		appendTx(FREE_CHANNEL);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		state = STANDBY;
+	} else if(state == RADIO_MODE){
+		setRxAddrNRF24L01((uint8_t *)MyAddr,NRF24L01_RX_ADDR_P1);
+		uint8_t k = 0;
+		uint8_t i = 0;
+		
+		if(talkingOrListening == 0){	// Talking/Emiting
+			printUSART2("NOW EMITTING \n");
+			while(1)
+			{
+				for(k_mic=0;k_mic<64;k_mic++)
+				{
+					while((SPI2->SR & 0x0001) == 0x0000); 							// wait until data receiving is completed
+					while(SPI2->SR & 0x0080); 										// wait until SPI becomes idle
+					buff[k_mic] = HTONS(SPI2->DR);
+				}
+						
+				PDM_Filter_64_LSB((uint8_t *)buff, (uint16_t *)outdata, volume , &Filter);
+				
+				i = 0;
+				k = 0;
+				while(k<(NRF24L01_PIPE_LENGTH)){
+					appendTx( ((outdata[i]&0xFF00) >> 8) );
+					appendTx ( (outdata[i]&0x00FF) );
+					
+					k+=2;
+					i++;
+				}
+
+				txDataNRF24L01((uint8_t *)OtherAddr, TxData);
+				clearTx();
+				
+				if(changeMode){
+					changeMode = 0;
+					talkingOrListening ^= 0x01;
+					serviceIRQA();
+					break;
+				}
+				
+				serviceIRQA();
+			}
+		} else {
+			printUSART2("NOW RECEIVING \n");
+			uint16_t buffer[16];
+			uint16_t cntb = 0;
+			uint16_t cntb_max = 16;
+			uint8_t dac_mode = 0;
+			uint16_t imf=0;
+			
+			/* Buffering end */
+			
+			setRxMode();
+			
+			while(1)
+			{
+				setTxAddrNRF24L01(OtherAddr);
+				AntenaState = dataReadyNRF24L01();
+				
+				if(AntenaState == (NRF_DATA_READY))
+				{
+					rxDataNRF24L01(RxData);
+										
+					k=0;
+				
+					for(i=0;i<NRF24L01_PIPE_LENGTH/2;i++){				
+						buffer[cntb] = ((RxData[k]) << 8)|RxData[k+1];
+										
+						cntb++;
+						k+=2;
+					}
+								
+					if(cntb >= cntb_max){								
+						for(k=0;k<cntb_max;k++){
+							if(!dac_mode){
+								dac_data[n_mic] = buffer[k];								 
+								dac_data[n_mic+1] = buffer[k];	
+							} else {
+								dac_data2[n_mic] = buffer[k];								 
+								dac_data2[n_mic+1] = buffer[k];
+							}	
+							
+							n_mic+=2;
+						}
+														
+						cntb = 0;
+						
+						if(n_mic > DAC_BUFF_SIZE){
+							n_mic = 0;
+							
+							if(!dac_mode){
+								dac_mode = 1;
+							} else {
+								dac_mode = 0;
+							}
+						}
+					}
+				}
+				
+				if(changeMode){
+					changeMode = 0;
+					talkingOrListening ^= 0x01;
+					
+					printUSART2("Talking/Listening: %d \n", talkingOrListening);
+					
+					n_mic = 0;
+					for(k=0;k<64;k++){
+						dac_data[n_mic] = 0;								 
+						dac_data[n_mic+1] = 0;	
+						
+						n_mic+=2;
+					}
+					n_mic = 0;
+					for(k=0;k<64;k++){
+						dac_data2[n_mic] = 0;								 
+						dac_data2[n_mic+1] = 0;	
+						
+						n_mic+=2;
+					}
+					n_mic = 0;
+					
+					serviceIRQA();
+					
+					break;
+				}
+				
+				serviceIRQA();
+			}
+		}
+	} else if(state == HANG_UP_C){
+		setRxAddrNRF24L01((uint8_t *)ADDR_BUS,NRF24L01_RX_ADDR_P1);
+		printUSART2("CHECKING FOR CALLS...\n");
+		appendTx(RESERVE);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+		setRxMode();
+		
+		while(1)
+		{
+			setTxAddrNRF24L01(ADDR_SERV);
+			AntenaState = dataReadyNRF24L01();
+							
+			if(AntenaState == (NRF_DATA_READY))
+			{
+				rxDataNRF24L01(RxData);
+				code = RxData[0];
+				printUSART2("CODE: %d \n", code);
+				break;
+			} 
+		}
+		
+		appendTx(code);
+		appendTx(HANG_UP);
+		appendTx(MyAddr[0]);
+		appendTx(OtherAddr[0]);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
+		clearTx();
+		state = FREE_CHANNEL_C;
 	} else {
-	
+		// MALFUNCTION -> INVALID STATE(THIS SHOULD NEVER HAPPEN)
 	}
 	
 	}
 	
 	return 0;
 }
+
+void pujdo(void)
+{
+	RCC->APB1ENR |= RCC_APB1ENR_TIM5EN; 								// 
+	TIM5->PSC = 0x20D0-0x0001;											// 
+																		// 
+	TIM5->ARR = 0x0FFF;													// 
+	TIM5->CR1 = 0x0084;													// 
+																		//
+	TIM5->CR2 = 0x0000;
+	TIM5->CNT = 0x0000;													// 
+	TIM5->EGR |= TIM_EGR_UG;											//
+	TIM5->DIER = 0x0001;												// enable 
+	
+	NVIC_SetPriority(TIM5_IRQn, 0);
+	NVIC_EnableIRQ(TIM5_IRQn);											// 	
+}
+
+void startPujdo(){
+	TIM5->CR1 |= TIM_CR1_CEN;
+} 
+
+void stopPujdo(){
+	TIM5->CR1 &= ~TIM_CR1_CEN;
+	TIM5->SR = 0x0000;
+}
+
+void feedPujdo(void){
+	TIM5->CNT = 0x0000;
+}
+
+void TIM5_IRQHandler(void)
+{
+	if(TIM5->SR & 0x0001)
+	{
+		TIM5->SR = 0x0000;
+		
+		clearTx();
+		appendTx(code);
+		appendTx(KEEP_ALIVE);
+		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
+		clearTx();
+	}
+}
+
+void EXTI0_IRQHandler(void){
+	if((EXTI->PR & EXTI_PR_PR0) == EXTI_PR_PR0)							// EXTI_Line0 interrupt pending?
+	{
+		if(g_gpioa_irq_state == (IRQ_IDLE))
+		{		
+			if(state == STANDBY){
+				state = CHOOSE_OPTION;
+			} else if(state == RADIO_MODE){
+				changeMode = 1;
+			} else {
+			}
+			
+			g_gpioa_irq_state = (IRQ_DETECTED);
+		}
+				
+		EXTI->PR = EXTI_PR_PR0;											// clear EXTI_Line0 interrupt flag
+	}
+}
+
+void serviceIRQA(void)
+{
+	switch(g_gpioa_irq_state)
+	{
+		case(IRQ_IDLE):
+		{
+			break;
+		}
+		case(IRQ_DETECTED):
+		{
+			g_irq_cnt++;
+			printUSART2("-> IRQ event [%d]\n", g_irq_cnt);
+			g_gpioa_irq_state = (IRQ_WAIT4LOW); 
+			break;
+		}
+		case(IRQ_WAIT4LOW):
+		{
+			if((GPIOA->IDR & 0x0001) == 0x0000)
+			{
+				g_gpioa_irq_state = (IRQ_DEBOUNCE);
+				g_irq_timer = getSYSTIMER(); 
+			}
+			break;
+		}
+		case(IRQ_DEBOUNCE):
+		{
+			if(chk4TimeoutSYSTIMER(g_irq_timer, 50000) == (SYSTIMER_TIMEOUT))
+			{
+				g_gpioa_irq_state = (IRQ_IDLE); 
+			}
+		}
+		default:
+		{
+			break;
+		}
+	}
+}
+

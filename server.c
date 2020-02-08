@@ -2,8 +2,9 @@
 
 char ADDR_SRV[6] = "CHSRV"; 											// Adresa servera
 char ADDR_BUS[6] = "CHBUS";												// Adresa busa											
-char CALLS[5][5] = {"0x00", "0x00", "0x00", "0x00", "0x00"};	
-char USED_ADDR[5][5] = {"alpha", "charl", "bravo", "delta", "echoo"};		
+uint8_t CALLING[5] = {0, 0, 0, 0, 0};
+uint8_t CALLERS[5] = {0, 0, 0, 0, 0};	
+char USED_ADDR[5][5] = {"alpha", "bravo", "charl", "delta", "echoo"};		
 char ADDR_TX_P0[5] = "alpha";													
 char ADDR_TX_P1[5] = "charl";
 char ADDR_TX_P2[5] = "bravo";
@@ -57,3 +58,44 @@ void clearTx(){
 	
 	TxCnt = 0;
 }
+
+/* Returns 1 when calling address is available
+ * otherwise 0 
+ * after that it makes them busy both caller and calling address
+ */
+uint8_t checkCallStatus(char caller, char calling){
+	if(CALLING[textAddrToIndex(calling)] == 0){
+		CALLING[textAddrToIndex(calling)] = 1;
+		CALLING[textAddrToIndex(caller)] = 1;
+		CALLERS[textAddrToIndex(calling)] = textAddrToIndex(caller);
+		
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+uint8_t iHaveCalls(char myAddr){
+	if(CALLING[textAddrToIndex(myAddr)] == 1){
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+uint8_t textAddrToIndex(char addr){
+	if(addr == 'a'){
+		return ALPHA_INDEX;
+	} else if(addr == 'b'){
+		return BRAVO_INDEX;
+	} else if(addr == 'c'){
+		return CHARL_INDEX;
+	} else if(addr == 'd'){
+		return DELTA_INDEX;
+	} else if(addr == 'e'){
+		return ECHOO_INDEX;
+	} else {
+		return OUTOFBOUNDS_INDEX;
+	}
+}
+

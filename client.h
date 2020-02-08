@@ -9,14 +9,25 @@
 #define CONFIRM				100
 #define CALL				101
 #define HANG_UP				102
+#define KEEP_ALIVE			104
+#define CHECK_CALLS			105
+
+#define USER_BUSY 			110
+#define CAN_CALL			111
+
+#define HAVE_CALL			112
+#define NO_CALL  			113
 
 char ADDR_SERV[6]; 											
 char ADDR_BUS[6];
 char MyAddr[6];
+char OtherAddr[6];
 
 uint8_t AntenaState;
 uint8_t RxData[NRF24L01_PIPE_LENGTH];
 uint8_t TxData[NRF24L01_PIPE_LENGTH];
+uint8_t statusOfCall;
+uint8_t	pendingCalls;
 
 uint8_t RxCnt;
 uint8_t TxCnt;

@@ -3,7 +3,8 @@
 
 char ADDR_SERV[6] = "CHSRV"; 											
 char ADDR_BUS[6] = "CHBUS";			
-char MyAddr[6];
+char MyAddr[6] = "";
+char OtherAddr[6] = "";
 
 uint8_t AntenaState;
 uint8_t RxData[NRF24L01_PIPE_LENGTH];
@@ -11,6 +12,8 @@ uint8_t TxData[NRF24L01_PIPE_LENGTH];
 
 uint8_t RxCnt = 0;
 uint8_t TxCnt = 0;
+uint8_t statusOfCall = 0;
+uint8_t pendingCalls = 0;
 
 void appendRx(char tmp){
 	RxData[RxCnt] = tmp;
