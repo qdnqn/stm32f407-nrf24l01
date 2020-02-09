@@ -91,36 +91,36 @@ int main(void)
 	
 	delay_ms(10);
 	
-	if((GPIOC->IDR & 0x00000040) == 0x00000000)
-	{// init as Tx node
-		MyAddr[0] = 'e';
-		MyAddr[1] = 'd';
-		MyAddr[2] = 'm';
-		MyAddr[3] = 'i';
-		MyAddr[4] = 'r';
+	//if((GPIOC->IDR & 0x00000040) == 0x00000000)
+	//{// init as Tx node
+		//MyAddr[0] = 'e';
+		//MyAddr[1] = 'd';
+		//MyAddr[2] = 'm';
+		//MyAddr[3] = 'i';
+		//MyAddr[4] = 'r';
 		
-		OtherAddr[0] = 'a';
-		OtherAddr[1] = 'd';
-		OtherAddr[2] = 'n';
-		OtherAddr[3] = 'a';
-		OtherAddr[4] = 'n';
-	} else {
-		MyAddr[0] = 'a';
-		MyAddr[1] = 'd';
-		MyAddr[2] = 'n';
-		MyAddr[3] = 'a';
-		MyAddr[4] = 'n';
+		//OtherAddr[0] = 'a';
+		//OtherAddr[1] = 'd';
+		//OtherAddr[2] = 'n';
+		//OtherAddr[3] = 'a';
+		//OtherAddr[4] = 'n';
+	//} else {
+		//MyAddr[0] = 'a';
+		//MyAddr[1] = 'd';
+		//MyAddr[2] = 'n';
+		//MyAddr[3] = 'a';
+		//MyAddr[4] = 'n';
 		
-		OtherAddr[0] = 'e';
-		OtherAddr[1] = 'd';
-		OtherAddr[2] = 'm';
-		OtherAddr[3] = 'i';
-		OtherAddr[4] = 'r';
+		//OtherAddr[0] = 'e';
+		//OtherAddr[1] = 'd';
+		//OtherAddr[2] = 'm';
+		//OtherAddr[3] = 'i';
+		//OtherAddr[4] = 'r';
 		
-		talkingOrListening = 1;
-	}
+		//talkingOrListening = 1;
+	//}
 	
-	state = RADIO_MODE;
+	//state = RADIO_MODE;
 	
 
 	/* End of testing RADIO_MODE */
@@ -136,12 +136,12 @@ int main(void)
 	
 	/* For production uncomment this:
 	 */ 
-	//initNRF24L01(ADDR_BUS);
+	initNRF24L01(ADDR_BUS);
 	
 	/* For testing RADIO_MODE uncomment this:
 	 */
 	
-	initNRF24L01(MyAddr);
+	//initNRF24L01(MyAddr);
 	
 	
 	uint8_t i = 0;
@@ -221,7 +221,12 @@ int main(void)
 							MyAddr[i] = RxData[i];
 						}
 												
-						printUSART2("My address from server: %s \n", MyAddr);
+						printUSART2("My address from server: ");
+						uint8_t j;
+						for(j=1;j<6;j++) {
+							printUSART2("%c", MyAddr[j]);
+						}
+						printUSART2("\n");
 						delay_ms(1000);
 						state = STANDBY;	
 						
