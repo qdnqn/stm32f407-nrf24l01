@@ -143,7 +143,7 @@ int main(void)
 					 
 					appendTx(codeClient);
 					
-					feedPujdo();
+					//feedPujdo();
 					printUSART2("Trying to call %d! \n", commands[3]);
 					
 					if(checkCallStatus(commands[2],commands[3])){
