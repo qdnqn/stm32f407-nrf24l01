@@ -2,7 +2,7 @@
 #define CONTROL_CLIENT_H
 
 #define BOOT			    0
-#define ADDRESS				1
+#define ADDRESS_CONTROL		1
 #define CHOOSE_OPTION		2
 #define WAIT_FOR_CALL		3
 #define CALL_CONTROL   		4

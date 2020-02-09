@@ -8,7 +8,6 @@
 #include "control.h"
 #include "led.h"
 #include "client.h"
-#include "rand.h"
 
 #define DAC_BUFF_SIZE 128
 
@@ -17,12 +16,9 @@ void feedPujdo(void);
 void startPujdo();
 void stopPujdo();
 
-PDMFilter_InitStruct Filter;
-
-void runMasterNodeSYS(PDMFilter_InitStruct *);
-void runSlaveNodeSYS(void);
-void runMasterNodeSYS1(uint8_t nrf_data);
-
+/*
+ * Setting up neeeded variables for RADIO_MODE -------------------------
+ */
 PDMFilter_InitStruct Filter;
 uint32_t utmp32 = 0, k_mic = 0, n_mic = 0;
 uint16_t buff[64], cnt = 0;
@@ -32,20 +28,12 @@ uint16_t volume = 20, utmp16;
 uint16_t dac_data[DAC_BUFF_SIZE], dac_data2[DAC_BUFF_SIZE];
 uint16_t fs = 16000;
 uint32_t pid = 0;
-
-uint32_t tmp;
-uint8_t codeClient;
-
-/* 0 -> Keep alive
- * 1 -> Check hanged up
+/*
+ * ---------------------------------------------------------------------
  */
-uint8_t TIM5WatchDogMode = 0; 
 
 int main(void)
 {
-	tmp = genRIN();
-	codeClient = tmp>>24;
-	
 	Filter.LP_HZ = 8000;
 	Filter.HP_HZ = 20;
 	Filter.Fs = fs;
@@ -57,40 +45,21 @@ int main(void)
 	 
 	RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
 	
-	initUSART2(USART2_BAUDRATE_921600);
-	
-	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	printUSART2("w STM32F407 - CS43L22 Audio DAC MIC I2S demo");
-	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-	
+	initUSART2(USART2_BAUDRATE_921600);	
 	initCS43L22(3, 8000, dac_data, dac_data2, DAC_BUFF_SIZE);
-	printUSART2("-> SYS: init completed\n");
+	
 	SPI2->I2SCFGR |= SPI_I2SCFGR_I2SE; 
 	
-	/* Enable PA0 input & activate interupt */
+	/* Enable PA0 input */
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 	GPIOA->MODER &= ~0x00000003; 
-	
-	/*RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
-	NVIC_EnableIRQ(EXTI0_IRQn);
-	SYSCFG->EXTICR[0] = SYSCFG_EXTICR1_EXTI0_PA;
-	EXTI->IMR = EXTI_IMR_MR0;											// enable interrupt on EXTI_Line0
-	EXTI->EMR &= ~EXTI_EMR_MR0;											// disable event on EXTI_Line0
-	EXTI->RTSR = EXTI_RTSR_TR0;	
-	EXTI->FTSR = 0x00000000;	*/
-	/* */
 		
-	
-	/* 
-	 * Uncomment this if you want to test RADIO_MODE instantly
-	 */	
-	
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
 	GPIOC->MODER &= ~(GPIO_MODER_MODER6);  
 	GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR6_0);	
 	
 	delay_ms(10);
-	
+{
 	//if((GPIOC->IDR & 0x00000040) == 0x00000000)
 	//{// init as Tx node
 		//MyAddr[0] = 'e';
@@ -124,15 +93,13 @@ int main(void)
 	
 
 	/* End of testing RADIO_MODE */
-
-	delay_ms(10);
+}
 	 
 	printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	printUSART2("w nRF24L01 Tx-Rx - Client\n");
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	
 	initSYSTIM();
-	initSYSTIMER();
 	
 	/* For production uncomment this:
 	 */ 
@@ -147,450 +114,85 @@ int main(void)
 	uint8_t i = 0;
 	pujdo();
 	
+	setClientCode();
+	
 	while(1){
-		
-	if(state == BOOT){
-		ledTurnOn("red");
-		
-		uint8_t gotResponse = 0;
-		setRxMode();
-		
-		while(1){
-			appendTx(RESERVE);
-			appendTx(codeClient);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-			clearTx();
+		if(state == BOOT){
+			startBlink("red");
 			
-			while(1)
-			{
-				setTxAddrNRF24L01(ADDR_SERV);
-				delay_ms(1);
-				AntenaState = dataReadyNRF24L01();
-								
-				if(AntenaState == (NRF_DATA_READY))
-				{
-					rxDataNRF24L01(RxData);
-										
-					if(codeClient == RxData[0]){
-						gotResponse = 1;
-						code = RxData[1];
-						state = ADDRESS;
-						break;
-					} else {
-						break;
-					}
+			if(reserveBus() == 1){
+				stopBlink("red");
+				ledTurnOn("red");
+				
+				printUSART2("Bus reserved hoooray!\n");
+				
+				if(alreadyHaveAddress == 1){
+					state = FREE_CHANNEL_C;
 				} else {
-					break;
+					state = ADDRESS_CONTROL;
 				}
-			}	
-			
-			if(gotResponse == 1){
-				break;
-			}
-		}
-	} else if(state == ADDRESS){
-		ledTurnOn("green");
-		uint8_t gotResponse = 0;
-		setRxMode();
-		
-		while(1){
-			printUSART2("Trying to connect!\n");
-			
-			clearTx();
-			appendTx(code);
-			appendTx(CONNECT);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-			clearTx();
-			
-			printUSART2("Trying to recieve addres from server!\n");
-					
-			while(1)
-			{
-				setTxAddrNRF24L01(ADDR_SERV);
-				delay_ms(4);
-				AntenaState = dataReadyNRF24L01();
+			}		
+		} else if(state == ADDRESS_CONTROL){
+			if(getAddressFromServer(client_code) == 1){
+				printUSART2("Got address reserved hoooray!\n");
+				printUSART2("Trying to print address as string: %s \n", MyAddr);
 								
-				if(AntenaState == (NRF_DATA_READY))
-				{
-					rxDataNRF24L01(RxData);
-					
-					if(codeClient == RxData[0]){
-						gotResponse = 1;
-												
-						for(i=1;i<6;i++) {	
-							MyAddr[i] = RxData[i];
-						}
-												
-						printUSART2("My address from server: ");
-						uint8_t j;
-						for(j=1;j<6;j++) {
-							printUSART2("%c", MyAddr[j]);
-						}
-						printUSART2("\n");
-						delay_ms(1000);
-						state = STANDBY;	
-						
-						appendTx(code);
-						appendTx(FREE_CHANNEL);
-						txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-						clearTx();
-						
-						break;
-					}
-				} else {
-					break;
+				if(freeBus() == 1){
+					printUSART2("Bus is free hoooray!\n");
+					state = STANDBY;
 				}
-			}
-			
-			if(gotResponse == 1){
-				break;
-			}	
-		}
-	} else if(state == STANDBY){
-		uint8_t gotResponse = 0;
-		setRxMode();
-		
-		while(1){
+			} 
+		} else if(state == STANDBY){
 			if((GPIOA->IDR & 0x0001) == 0x0001){
 				state = CHOOSE_OPTION;
 				break;
 			}
 			
-			printUSART2("CHECKING FOR CALLS...\n");
-			appendTx(RESERVE);
-			appendTx(codeClient);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-			clearTx();
-			
-			while(1)
-			{
-				setTxAddrNRF24L01(ADDR_SERV);
-				delay_ms(4);
-				AntenaState = dataReadyNRF24L01();
-								
-				if(AntenaState == (NRF_DATA_READY))
-				{
-					if(codeClient == RxData[0]){
-						gotResponse = 1;
-						rxDataNRF24L01(RxData);
-						code = RxData[1];
-						break;
-					}
-				} else {
-					break;
-				}
-			}
-			
-			if(gotResponse){
-				appendTx(code);
-				appendTx(CHECK_CALLS);
-				appendTx(MyAddr[0]);
-						
-				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-				clearTx();
-				setRxMode();
+			if(reserveBus() == 1){
+				uint8_t calls = getCallsFromServer(client_code);
 				
-				while(1)
-				{
-					setTxAddrNRF24L01(ADDR_SERV);
-					AntenaState = dataReadyNRF24L01();
-									
-					if(AntenaState == (NRF_DATA_READY))
-					{
-						if(codeClient == RxData[0]){
-							rxDataNRF24L01(RxData);
-							pendingCalls = RxData[1];
-							break;
-						}
-					} 
-				}	
-				
-				if(pendingCalls == HAVE_CALL){
-					state = RADIO_MODE;
-					
-					for(i=1;i<6;i++){
-						OtherAddr[i-1] = RxData[i];
-					}
+				if(calls == HAVE_CALL){
+					printUSART2("You have call! \n");
+				} else if(calls == NO_CALL){
+					printUSART2("No calls! \n");
 				} else {
-					delay_ms(2500);
-					state = FREE_CHANNEL_C;
+					//
 				}
 				
-				break;
+				freeBus();
 			}
-		}
-	} else if(state == CHOOSE_OPTION){	
-		startPujdo();
-		uint8_t gotResponse = 0;
-		
-		setRxMode();
-						
-		while(1){
-			printUSART2("Enter address: ");
-			uint8_t addr = getcharUSART2();
 			
-			if(addr == (uint8_t)'q'){
+			delay_ms(5000);
+		} else if(state == CHOOSE_OPTION){
+			printUSART2("Enter address you want to call: ");
+			uint8_t cnt = getOneLineUSART2();
+			
+			if(oneLine[0] == (uint8_t)'q'){
 				state = STANDBY;
-				stopPujdo();
 				break;
 			}
 			
-			appendTx(RESERVE);
-			appendTx(codeClient);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-			clearTx();
-			
-			while(1)
-			{
-				setTxAddrNRF24L01(ADDR_SERV);
-				delay_ms(4);
-				AntenaState = dataReadyNRF24L01();
-								
-				if(AntenaState == (NRF_DATA_READY))
-				{
-					if(codeClient == RxData[0]){
-						gotResponse = 1;
-						rxDataNRF24L01(RxData);
-						code = RxData[1];
-						break;
-					}
-				} else {
-					break;
-				}
-			}
-			
-			if(gotResponse){
-			
-				clearTx();
-				appendTx(code);
-				appendTx(CALL);
-				appendTx(MyAddr[0]);
-				appendTx(addr);
-				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-				clearTx();
-				stopPujdo();
-			
-				printUSART2("SENDING ADDRESS TO SERVER.\n");
-			
-				while(1)
-				{
-					setTxAddrNRF24L01(ADDR_SERV);
-					AntenaState = dataReadyNRF24L01();
-									
-					if(AntenaState == (NRF_DATA_READY))
-					{
-						rxDataNRF24L01(RxData);
-						
-						if(codeClient == RxData[0]){
-							gotResponse = 1;
-							statusOfCall = RxData[1];
-							
-							for(i=2;i<7;i++) {	
-								OtherAddr[i-2] = RxData[i];
-							}
-							
-							printUSART2("Response from server ---->\n");
-							
-							if(statusOfCall == CAN_CALL){
-								printUSART2("CAN CALLLLLL HOORAY %s !\n", OtherAddr);
-								clearTx();
-								appendTx(code);
-								appendTx(FREE_CHANNEL);
-								txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
-								clearTx();
-							} else {
-								printUSART2("No call for you.\n");
-								break;
-							}
-						} else {
-							printUSART2("Invalid client code.\n");
-							break;
-						}
-					} 
-				}
-				
-				if(statusOfCall == CAN_CALL){
+			if(reserveBus() == 1){
+				if(callAnotherClient(oneLine) == 1){
+					printUSART2("User is available for call. Switching to radio mode.\n");
 					state = RADIO_MODE;
 				} else {
+					printUSART2("User is busy. Switching back to standy mode.\n");
 					state = STANDBY;
 				}
 				
-				break;
+				freeBus();
+			}
+		} else {
+			if(freeBus() == 1){
+				printUSART2("Bus is free hoooray!\n");
+				delay_ms(5000);
+				
+				state = BOOT;
 			}
 		}
-	} else if(state == FREE_CHANNEL_C){
-		clearTx();
-		appendTx(code);
-		appendTx(FREE_CHANNEL);
-		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-		clearTx();
-		state = STANDBY;
-	} else if(state == RADIO_MODE){		
-		setRxAddrNRF24L01((uint8_t *)MyAddr,NRF24L01_RX_ADDR_P1);
-		
-		uint8_t k = 0, i = 0;
-		uint16_t buffer[16];
-		uint16_t cntb = 0;
-		uint16_t cntb_max = 16;
-		uint8_t dac_mode = 0;
-		uint16_t imf=0;
-		
-		setRxMode();
-		
-		while(1){
-			while((GPIOA->IDR & 0x0001) == 0x0001){
-				n_mic = 0;
-				for(k=0;k<64;k++){
-					dac_data[n_mic] = 0;								 
-					dac_data[n_mic+1] = 0;	
-					
-					n_mic+=2;
-				}
-				n_mic = 0;
-				for(k=0;k<64;k++){
-					dac_data2[n_mic] = 0;								 
-					dac_data2[n_mic+1] = 0;	
-					
-					n_mic+=2;
-				}
-				n_mic = 0;
-				
-				clearTx();
-				appendTx('s');
-				appendTx('t');
-				appendTx('o');
-				appendTx('p');
-				txDataNRF24L01((uint8_t *)OtherAddr, TxData);
-				clearTx();
-				break;
-				
-				for(k_mic=0;k_mic<64;k_mic++)
-				{
-					while((SPI2->SR & 0x0001) == 0x0000); 							// wait until data receiving is completed
-					while(SPI2->SR & 0x0080); 										// wait until SPI becomes idle
-					buff[k_mic] = HTONS(SPI2->DR);
-				}
-						
-				PDM_Filter_64_LSB((uint8_t *)buff, (uint16_t *)outdata, volume , &Filter);
-				
-				i = 0;
-				k = 0;
-				while(k<(NRF24L01_PIPE_LENGTH)){
-					appendTx( ((outdata[i]&0xFF00) >> 8) );
-					appendTx ( (outdata[i]&0x00FF) );
-					
-					k+=2;
-					i++;
-				}
-
-				txDataNRF24L01((uint8_t *)OtherAddr, TxData);
-				clearTx();
-			}
-			
-			setTxAddrNRF24L01(OtherAddr);
-			AntenaState = dataReadyNRF24L01();
-						
-			if(AntenaState == (NRF_DATA_READY))
-			{
-				rxDataNRF24L01(RxData);
-									
-				k=0;
-			
-				for(i=0;i<NRF24L01_PIPE_LENGTH/2;i++){				
-					buffer[cntb] = ((RxData[k]) << 8)|RxData[k+1];
-									
-					cntb++;
-					k+=2;
-				}
-				
-				if(RxData[0] == (uint8_t)'s' && RxData[1] == (uint8_t)'t' && RxData[2] == (uint8_t)'o' &&  RxData[3] == (uint8_t)'p'){
-					state = STANDBY;
-					break;
-				} 
-							
-				if(cntb >= cntb_max){								
-					for(k=0;k<cntb_max;k++){
-						if(!dac_mode){
-							dac_data[n_mic] = buffer[k];								 
-							dac_data[n_mic+1] = buffer[k];	
-						} else {
-							dac_data2[n_mic] = buffer[k];								 
-							dac_data2[n_mic+1] = buffer[k];
-						}	
-						
-						n_mic+=2;
-					}
-													
-					cntb = 0;
-					
-					if(n_mic > DAC_BUFF_SIZE){
-						n_mic = 0;
-						
-						if(!dac_mode){
-							dac_mode = 1;
-						} else {
-							dac_mode = 0;
-						}
-					}
-				}
-			}
-		}
-		
-	} else if(state == HANG_UP_C){
-		clearTx();
-		appendTx('s');
-		appendTx('t');
-		appendTx('o');
-		appendTx('p');
-		txDataNRF24L01((uint8_t *)OtherAddr, TxData);
-		clearTx();
-		
-		uint8_t gotResponse = 0;
-		
-		while(1){
-			setRxAddrNRF24L01((uint8_t *)ADDR_BUS,NRF24L01_RX_ADDR_P1);
-			printUSART2("CHECKING FOR CALLS...\n");
-			appendTx(RESERVE);
-			txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-			clearTx();
-			setRxMode();
-			
-			while(1)
-			{
-				setTxAddrNRF24L01(ADDR_SERV);
-				delay_us(500);
-				AntenaState = dataReadyNRF24L01();
-								
-				if(AntenaState == (NRF_DATA_READY))
-				{
-					gotResponse = 1;
-					
-					rxDataNRF24L01(RxData);
-					code = RxData[0];
-					printUSART2("CODE: %d \n", code);
-					
-					break;
-				} else {
-					break;
-				}
-			}
-			
-			if(gotResponse == 1){
-				appendTx(code);
-				appendTx(HANG_UP);
-				appendTx(MyAddr[0]);
-				appendTx(OtherAddr[0]);
-				txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);
-				clearTx();
-				state = FREE_CHANNEL_C;
-			}
-		}
-	} else {
-		// MALFUNCTION -> INVALID STATE(THIS SHOULD NEVER HAPPEN)
 	}
 		
-	}
-	
 	return 0;
 }
 
@@ -611,30 +213,3 @@ void pujdo(void)
 	NVIC_EnableIRQ(TIM5_IRQn);											// 	
 }
 
-void startPujdo(){
-	TIM5->CR1 |= TIM_CR1_CEN;
-} 
-
-void stopPujdo(){
-	TIM5->CR1 &= ~TIM_CR1_CEN;
-	TIM5->SR = 0x0000;
-}
-
-void feedPujdo(void){
-	TIM5->CNT = 0x0000;
-}
-
-void TIM5_IRQHandler(void)
-{
-	if(TIM5->SR & 0x0001)
-	{
-		TIM5->SR = 0x0000;
-		TIM5->CNT = 0x0000;
-	
-		clearTx();
-		appendTx(code);
-		appendTx(KEEP_ALIVE);
-		txDataNRF24L01((uint8_t *)ADDR_SERV, TxData);				
-		clearTx();
-	}
-}

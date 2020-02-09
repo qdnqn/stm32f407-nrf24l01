@@ -12,20 +12,7 @@ void feedPujdo(void);
 void startPujdo();
 void stopPujdo();
 
-uint32_t tmp;
-uint8_t code, codeClient;
-uint8_t current_addr;
-uint8_t reserved;
-
-int main(void)
-{	
-	//uint8_t cnt_addr = 0;
-	//uint8_t k, i, res;
-	//uint8_t nrf_data[32];
-	//uint8_t bus_flag = 0;
-	//uint8_t z;
-	//uint8_t commands[2];	
-	
+int main(void){	
 	initBlink();
 	initUSART2(USART2_BAUDRATE_921600);
 	initNRF24L01(ADDR_SRV);
@@ -36,11 +23,7 @@ int main(void)
     printUSART2("\n\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
 	printUSART2("w nRF24L01 Tx-Rx - Server\n");
 	printUSART2("\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n");
-      
-    tmp = genRIN();
-	code = tmp>>24;
-	reserved = 0;
-      
+
 	while(1)															// vrti sve dok se ne unese odgovarajuća antena(0-5)
 	{
 		setTxAddrNRF24L01(ADDR_BUS);									// adresa sa koje sluša
@@ -49,146 +32,80 @@ int main(void)
 		if(AntenaState == (NRF_DATA_READY))
 		{
 			rxDataNRF24L01(RxData);								    // primljeni podatak je upisan u nrf_data
-			commands[0] = RxData[0];
-			commands[1] = RxData[1];
-			commands[2] = RxData[2];
-			commands[3] = RxData[3];
-			
-			printUSART2("%d - %d - %d\n", commands[0], commands[1], commands[2]);
-			
-			if(commands[0] == RESERVE){
-				if(!reserved){
-					reserved = 1;
-					codeClient = commands[1];
-					printUSART2("CODE FROM CLIENT: %d\n", codeClient);
-					printUSART2("CODE: %d\n", code);
-					
-					appendTx(codeClient);
-					appendTx(code);
-					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					clearTx();
-					clearRx();
-					startPujdo();
-				}
-			} else if(commands[1] == (CONNECT)) {//connect
-				printUSART2("Trying connect with code %d\n", commands[0]);
-				printUSART2("Server code is: %d\n", code);
-				
-				if(code == commands[0]){
-					feedPujdo();
-					
-					clearTx();
-					appendTx(codeClient);
-					
-					printUSART2("APPENDING CLIENT CODE %d\n", codeClient);
-					
-					if(cnt_addr < 5) {
-					for(i=0;i<5;i++) {
-						appendTx((uint8_t)(USED_ADDR[cnt_addr][i]));
-					}	
-										
-					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					clearTx();
-					cnt_addr++;
-					commands[0] = (CALL);
-					}
-					else {
-						appendTx('e');
-						appendTx('r');
-						appendTx('r');
-						appendTx('o');
-						appendTx('r');
-						txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-						clearTx();
-						commands[0] = (NO_MORE_ADDRESS);
-					}
-					
-					commands[1] = (CALL);
-				}
-			} else if(commands[1] == (FREE_CHANNEL)) {//free_chanel
-				if(code == commands[0]){
-					stopPujdo();
-					feedPujdo();
-					
-					reserved = 0;
-					tmp = genRIN();
-					code = tmp>>24;
-					printUSART2("Chanel BUS - SERVER is free!");
-					clearRx();
-				}
-			} else if(commands[1] == (CHECK_CALLS)){
-				if(code == commands[0]){
-					feedPujdo();
-					clearTx();
-					appendTx(codeClient);
-					
-					if(iHaveCalls(commands[2])){
-						appendTx(HAVE_CALL);
 						
-						for(i=0;i<5;i++){
-							appendTx(USED_ADDR[CALLERS[textAddrToIndex(commands[2])]][i]);
-						}
+			if(getCommand(RxData) == RESERVE){
+				if(!reserved){
+					startPujdo();
+					
+					reserved = 1;
+					setServerCode();
+					
+					if(setClientCode(getClientCode(RxData))){
+						printUSART2("Code from client %d appended to server and set as active.\n", getClientCode(RxData));
+						printUSART2("Server code is: %d\n", code);
+						
+						packetDataLight(code, client_code, RESERVED);
+						txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
 					} else {
-						appendTx(NO_CALL);
+						packetDataLight(code, client_code, CLIENT_CODE_USED);
+						txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
 					}
 					
-					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					clearTx();
+					stopPujdo();
+				} else {
+					printUSART2("Someone is trying to connect to reserved channel. \n");
 				}
-			} else if(commands[1] == (CALL)){
-				if(code == commands[0]){
-					/* commands[2] -> caller address 
-					 * commands[3] -> calling address
-					 */
-					 
-					appendTx(codeClient);
-					
-					//feedPujdo();
-					printUSART2("Trying to call %d! \n", commands[3]);
-					
-					if(checkCallStatus(commands[2],commands[3])){
-						printUSART2("Call granted!\n");
-						appendTx(CAN_CALL);
-					} else {
-						printUSART2("User is bussy!\n");
-						appendTx(USER_BUSY);
-					}
-					
-					for(i=0;i<5;i++){
-						appendTx(USED_ADDR[textAddrToIndex(commands[3])][i]);
-					}
-					
-					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
-					clearTx();
-				}
-			} else if(commands[1] == (HANG_UP)){
-				if(code == commands[0]){
-					/* commands[2] -> caller address 
-					 * commands[3] -> calling address
-					 */
-					 
-					 appendTx(codeClient);
-					 
-					feedPujdo();
-					printUSART2("Hanging up call with %d! \n", commands[3]);
-					
-					if(hangUpCall(commands[2],commands[3])){
-						printUSART2("Call hanged up!\n");
-					} else {
-						printUSART2("Failed to hang up call!\n");
-					}
-				}
-			} else if(commands[1] == (KEEP_ALIVE)) {//hangup
-				if(code == commands[0]){
-					feedPujdo();
-					printUSART2("Keeping alive! \n");
-				}
-			}
-			else {
+			} else if(getCommand(RxData) == FREE_CHANNEL && getServerCode(RxData) == code){
+				startPujdo();
+				reserved = 0;
+				setServerCode();
 				
-			} 	
-		  }
+				uint8_t temp_client_code = client_code;
+				
+				if(clearClientCode(client_code)){
+					printUSART2("Code from client %d removed from server.\n", getClientCode(RxData));
+					printUSART2("Server code is: %d\n", code);
+					
+					packetDataLight(code, temp_client_code, FREED);
+					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+				} else {
+					packetDataLight(code, temp_client_code, NOT_FREED);
+					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+				}
+				stopPujdo();
+			} else if(getCommand(RxData) == ADDRESS && getServerCode(RxData) == code){
+				startPujdo();
+				printUSART2("Code from client %d got address from server.\n", client_code);
+									
+				packetData(code, client_code, FETCHED_ADDRES, fetchFreeAddress(getClientCode(RxData)));
+				txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+				stopPujdo();
+			} else if(getCommand(RxData) == CHECK_CALLS && getServerCode(RxData) == code){
+				startPujdo();
+				printUSART2("Code from client %d got address from server.\n", client_code);
+				
+				if(getPtrAddr(client_code)){
+					if(ptrAddr->attemptedCall == 1){
+						ptrAddr->busy = 1;
+						packetData(code, client_code, HAVE_CALL, ptrAddr->talkingTo);
+						txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+					} else {
+						packetDataLight(code, client_code, NO_CALL);
+						txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+					}
+				} else {
+					packetDataLight(code, client_code, NO_CALL);
+					txDataNRF24L01((uint8_t*)ADDR_BUS, TxData);
+				}
+				
+				stopPujdo();
+			} else {
+				startPujdo();
+				printUSART2("Invalid command.\n");
+			}
 		}
+	}
+	
 	return 0;
 }
 
@@ -225,12 +142,11 @@ void TIM5_IRQHandler(void)
 {
 	if(TIM5->SR & 0x0001)
 	{
-		TIM5->CR1 &= ~TIM_CR1_CEN;
 		TIM5->CNT = 0x0000;
 		TIM5->SR = 0x0000;
+	
 		reserved = 0;
-		tmp = genRIN();
-		code = tmp>>24;
-		printUSART2("DEAD!\n");
+		
+		printUSART2("Restarting!\n");
 	}
 }
